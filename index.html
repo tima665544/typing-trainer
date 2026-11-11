@@ -90,7 +90,7 @@
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 10px;
       margin-bottom: 12px;
       font-size: 14px;
       color: var(--muted);
@@ -178,6 +178,7 @@
     <div id="trainerScreen" class="trainer-box">
       <div class="status-bar">
         <span id="progressStat">Символ: 0 / 0</span>
+        <span id="liveSpeedStat">Скорость: 0 зн./мин</span>
         <span id="errorStat">Ошибок: 0</span>
         <button id="resetBtn" class="secondary-btn">Другой текст</button>
       </div>
@@ -236,6 +237,7 @@
     const mobileInput = document.getElementById('mobileInput');
     const hintBanner = document.getElementById('hintBanner');
     const progressStat = document.getElementById('progressStat');
+    const liveSpeedStat = document.getElementById('liveSpeedStat');
     const errorStat = document.getElementById('errorStat');
     const resultsBox = document.getElementById('resultsBox');
     const speedValue = document.getElementById('speedValue');
@@ -313,6 +315,12 @@
       sourceText.focus();
     });
 
+    function getCurrentCpm() {
+      if (!startTime || currentIndex === 0) return 0;
+      const elapsedMinutes = Math.max((Date.now() - startTime) / 60000, 1 / 60);
+      return Math.round(currentIndex / elapsedMinutes);
+    }
+
     function renderText() {
       let html = "";
       for (let i = 0; i < targetText.length; i++) {
@@ -327,6 +335,7 @@
       }
       textDisplay.innerHTML = html;
       progressStat.textContent = `Символ: ${currentIndex} / ${targetText.length}`;
+      liveSpeedStat.textContent = `Скорость: ${getCurrentCpm()} зн./мин`;
       errorStat.textContent = `Ошибок: ${mistakesCount}`;
     }
 
