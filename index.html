@@ -37,15 +37,8 @@
       padding: 24px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.04);
     }
-    h1 {
-      margin: 0 0 6px;
-      font-size: 24px;
-    }
-    .lead {
-      margin: 0 0 20px;
-      color: var(--muted);
-      font-size: 15px;
-    }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    .lead { margin: 0 0 20px; color: var(--muted); font-size: 15px; }
     .controls-row {
       display: flex;
       flex-wrap: wrap;
@@ -63,11 +56,7 @@
       cursor: pointer;
     }
     select { flex: 1; min-width: 220px; }
-    .file-label {
-      display: inline-block;
-      background: var(--bg);
-      font-weight: 500;
-    }
+    .file-label { display: inline-block; background: var(--bg); font-weight: 500; }
     input[type="file"] { display: none; }
     textarea {
       width: 100%;
@@ -81,34 +70,21 @@
       outline: none;
     }
     textarea:focus { border-color: var(--accent); }
-    textarea.error {
-      border-color: var(--danger);
-      background: var(--danger-soft);
+    textarea.error { border-color: var(--danger); background: var(--danger-soft); }
+    .field-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
     }
-    .msg {
-      min-height: 22px;
-      margin: 8px 0 12px;
-      font-size: 14px;
-      color: var(--danger);
-      font-weight: 500;
-    }
-    .primary-btn {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      font-weight: 600;
-      padding: 12px 22px;
-      font-size: 16px;
-    }
+    .msg { min-height: 22px; margin: 8px 0 12px; font-size: 14px; color: var(--danger); font-weight: 500; }
+    .actions-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .primary-btn { background: var(--accent); color: #fff; border: none; font-weight: 600; padding: 12px 22px; font-size: 16px; }
     .primary-btn:hover { opacity: 0.92; }
-    .secondary-btn {
-      background: var(--bg);
-      color: var(--text);
-    }
-    .trainer-box {
-      display: none;
-      margin-top: 10px;
-    }
+    .secondary-btn { background: var(--bg); color: var(--text); }
+    .trainer-box { display: none; margin-top: 10px; }
     .status-bar {
       display: flex;
       justify-content: space-between;
@@ -128,14 +104,8 @@
       background: var(--accent-soft);
       color: var(--accent);
     }
-    .hint-banner.error {
-      background: var(--danger-soft);
-      color: var(--danger);
-    }
-    .hint-banner.warn {
-      background: var(--warn-soft);
-      color: var(--warn);
-    }
+    .hint-banner.error { background: var(--danger-soft); color: var(--danger); }
+    .hint-banner.warn { background: var(--warn-soft); color: var(--warn); }
     .text-display {
       font-family: var(--mono);
       font-size: 22px;
@@ -148,31 +118,11 @@
       cursor: text;
       word-break: break-word;
     }
-    .char {
-      padding: 1px 0;
-      border-radius: 3px;
-    }
-    .char.done {
-      color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .char.current {
-      background: #222;
-      color: #fff;
-      padding: 1px 3px;
-    }
-    .char.wrong {
-      background: var(--danger);
-      color: #fff;
-      padding: 1px 3px;
-    }
-    .hidden-input {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-      width: 1px;
-      height: 1px;
-    }
+    .char { padding: 1px 0; border-radius: 3px; }
+    .char.done { color: var(--accent); background: var(--accent-soft); }
+    .char.current { background: #222; color: #fff; padding: 1px 3px; }
+    .char.wrong { background: var(--danger); color: #fff; padding: 1px 3px; }
+    .hidden-input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
     .results-box {
       display: none;
       margin-top: 18px;
@@ -181,31 +131,16 @@
       border-radius: 10px;
       background: var(--accent-soft);
     }
-    .results-box h2 {
-      margin: 0 0 12px;
-      font-size: 20px;
-    }
+    .results-box h2 { margin: 0 0 12px; font-size: 20px; }
     .metrics {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
       margin-bottom: 16px;
     }
-    .metric-card {
-      background: #fff;
-      padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-    }
-    .metric-label {
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .metric-value {
-      font-size: 26px;
-      font-weight: 700;
-      color: var(--text);
-    }
+    .metric-card { background: #fff; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); }
+    .metric-label { font-size: 13px; color: var(--muted); }
+    .metric-value { font-size: 26px; font-weight: 700; color: var(--text); }
   </style>
 </head>
 <body>
@@ -213,7 +148,6 @@
     <h1>Тренажёр слепой печати</h1>
     <p class="lead">Учите конспекты к семинару и тренируйте слепую печать одновременно</p>
 
-    <!-- Экран настройки и вставки текста -->
     <div id="setupScreen">
       <div class="controls-row">
         <select id="presetSelect">
@@ -229,12 +163,18 @@
       </div>
 
       <textarea id="sourceText" placeholder="Вставьте сюда скопированный абзац вашего конспекта (Ctrl+V) или выберите готовый текст выше..."></textarea>
+      <div class="field-meta">
+        <span id="charCount">Символов для набора: 0</span>
+        <span>Редкие кавычки и длинные тире заменяются автоматически</span>
+      </div>
       <div id="setupError" class="msg"></div>
 
-      <button id="startBtn" class="primary-btn">Начать тренировку</button>
+      <div class="actions-row">
+        <button id="startBtn" class="primary-btn">Начать тренировку</button>
+        <button id="clearTextBtn" class="secondary-btn">Очистить поле</button>
+      </div>
     </div>
 
-    <!-- Экран тренировки -->
     <div id="trainerScreen" class="trainer-box">
       <div class="status-bar">
         <span id="progressStat">Символ: 0 / 0</span>
@@ -286,8 +226,10 @@
     const presetSelect = document.getElementById('presetSelect');
     const fileInput = document.getElementById('fileInput');
     const sourceText = document.getElementById('sourceText');
+    const charCount = document.getElementById('charCount');
     const setupError = document.getElementById('setupError');
     const startBtn = document.getElementById('startBtn');
+    const clearTextBtn = document.getElementById('clearTextBtn');
     const resetBtn = document.getElementById('resetBtn');
     const repeatBtn = document.getElementById('repeatBtn');
     const textDisplay = document.getElementById('textDisplay');
@@ -318,12 +260,18 @@
         .trim();
     }
 
+    function updateCharCounter() {
+      const cleaned = normalizeText(sourceText.value);
+      charCount.textContent = `Символов для набора: ${cleaned.length}`;
+    }
+
     presetSelect.addEventListener('change', () => {
       const idx = presetSelect.value;
       if (idx !== "") {
         sourceText.value = PRESETS[Number(idx)];
         sourceText.classList.remove('error');
         setupError.textContent = "";
+        updateCharCounter();
       }
     });
 
@@ -343,15 +291,26 @@
         sourceText.value = String(ev.target.result || "");
         sourceText.classList.remove('error');
         setupError.textContent = "";
+        updateCharCounter();
       };
       reader.readAsText(file, "utf-8");
     });
 
     sourceText.addEventListener('input', () => {
+      updateCharCounter();
       if (sourceText.classList.contains('error')) {
         sourceText.classList.remove('error');
         setupError.textContent = "";
       }
+    });
+
+    clearTextBtn.addEventListener('click', () => {
+      sourceText.value = "";
+      presetSelect.value = "";
+      sourceText.classList.remove('error');
+      setupError.textContent = "";
+      updateCharCounter();
+      sourceText.focus();
     });
 
     function renderText() {
@@ -435,7 +394,6 @@
         startTime = Date.now();
       }
 
-      // Если уже висит неисправленная опечатка — блокируем продвижение
       if (hasError) {
         hintBanner.className = "hint-banner error";
         hintBanner.textContent = `Ввод заблокирован! Сначала нажмите Backspace (Стереть), а затем «${targetText[currentIndex]}»`;
