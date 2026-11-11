@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Тренажёр слепой печати — Прототип MVP</title>
+  <style>
+    :root {
+      --bg: #f5f3ee;
+      --card: #ffffff;
+      --text: #1d1a16;
+      --muted: #6f685e;
+      --accent: #3f7a0c;
+      --accent-soft: #e8f3dc;
+      --danger: #c93b2b;
+      --danger-soft: #fde8e5;
+      --warn: #b26b00;
+      --warn-soft: #fff4df;
+      --line: #ded8ce;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px 14px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .app {
+      max-width: 760px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+    }
+    .lead {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    select, .file-label, button {
+      font-size: 15px;
+      border-radius: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+    }
+    select { flex: 1; min-width: 220px; }
+    .file-label {
+      display: inline-block;
+      background: var(--bg);
+      font-weight: 500;
+    }
+    input[type="file"] { display: none; }
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      padding: 12px;
+      font-size: 16px;
+      font-family: inherit;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus { border-color: var(--accent); }
+    textarea.error {
+      border-color: var(--danger);
+      background: var(--danger-soft);
+    }
+    .msg {
+      min-height: 22px;
+      margin: 8px 0 12px;
+      font-size: 14px;
+      color: var(--danger);
+      font-weight: 500;
+    }
+    .primary-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      font-weight: 600;
+      padding: 12px 22px;
+      font-size: 16px;
+    }
+    .primary-btn:hover { opacity: 0.92; }
+    .secondary-btn {
+      background: var(--bg);
+      color: var(--text);
+    }
+    .trainer-box {
+      display: none;
+      margin-top: 10px;
+    }
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .hint-banner {
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .hint-banner.error {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+    .hint-banner.warn {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+    .text-display {
+      font-family: var(--mono);
+      font-size: 22px;
+      line-height: 1.65;
+      padding: 18px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: #faf9f6;
+      user-select: none;
+      cursor: text;
+      word-break: break-word;
+    }
+    .char {
+      padding: 1px 0;
+      border-radius: 3px;
+    }
+    .char.done {
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .char.current {
+      background: #222;
+      color: #fff;
+      padding: 1px 3px;
+    }
+    .char.wrong {
+      background: var(--danger);
+      color: #fff;
+      padding: 1px 3px;
+    }
+    .hidden-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 1px;
+      height: 1px;
+    }
+    .results-box {
+      display: none;
+      margin-top: 18px;
+      padding: 20px;
+      border: 2px solid var(--accent);
+      border-radius: 10px;
+      background: var(--accent-soft);
+    }
+    .results-box h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .metric-card {
+      background: #fff;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+    }
+    .metric-label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .metric-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Тренажёр слепой печати</h1>
+    <p class="lead">Учите конспекты к семинару и тренируйте слепую печать одновременно</p>
+
+    <!-- Экран настройки и вставки текста -->
+    <div id="setupScreen">
+      <div class="controls-row">
+        <select id="presetSelect">
+          <option value="">— Или выберите один из 5 готовых конспектов —</option>
+          <option value="0">1. Экономика: Спрос и предложение</option>
+          <option value="1">2. Право: Понятие гражданского договора</option>
+          <option value="2">3. Биология: Строение живой клетки</option>
+          <option value="3">4. Информатика: Что такое алгоритм</option>
+          <option value="4">5. Психология: Кратковременная и долговременная память</option>
+        </select>
+        <label class="file-label" for="fileInput">Загрузить .txt</label>
+        <input type="file" id="fileInput" accept=".txt">
+      </div>
+
+      <textarea id="sourceText" placeholder="Вставьте сюда скопированный абзац вашего конспекта (Ctrl+V) или выберите готовый текст выше..."></textarea>
+      <div id="setupError" class="msg"></div>
+
+      <button id="startBtn" class="primary-btn">Начать тренировку</button>
+    </div>
+
+    <!-- Экран тренировки -->
+    <div id="trainerScreen" class="trainer-box">
+      <div class="status-bar">
+        <span id="progressStat">Символ: 0 / 0</span>
+        <span id="errorStat">Ошибок: 0</span>
+        <button id="resetBtn" class="secondary-btn">Другой текст</button>
+      </div>
+
+      <div id="hintBanner" class="hint-banner">
+        Нажмите первую подсвеченную букву на клавиатуре, не глядя на клавиши
+      </div>
+
+      <div id="textDisplay" class="text-display" tabindex="0"></div>
+      <input type="text" id="mobileInput" class="hidden-input" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+      <div id="resultsBox" class="results-box">
+        <h2>Конспект набран! Ваш результат:</h2>
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-label">Скорость печати</div>
+            <div id="speedValue" class="metric-value">0 зн./мин</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Точность</div>
+            <div id="accuracyValue" class="metric-value">100%</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Опечаток</div>
+            <div id="mistakesValue" class="metric-value">0</div>
+          </div>
+        </div>
+        <button id="repeatBtn" class="primary-btn">Повторить этот абзац</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PRESETS = [
+      "Закон спроса утверждает: при прочих равных условиях, чем ниже цена товара, тем больше величина спроса на него.",
+      "Договором признается соглашение двух или нескольких лиц об установлении, изменении или прекращении гражданских прав и обязанностей.",
+      "Клетка является элементарной структурной и функциональной единицей всех живых организмов, обладающей собственным обменом веществ.",
+      "Алгоритм - это конечная последовательность точных действий, формальное выполнение которых позволяет получить решение задачи.",
+      "Для перевода информации из кратковременной памяти в долговременную требуется осмысленное повторение и связывание с прошлым опытом."
+    ];
+
+    const ENG_TO_RUS_LAYOUT = "qwertyuiop[]asdfghjkl;'zxcvbnm,.QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>";
+
+    const setupScreen = document.getElementById('setupScreen');
+    const trainerScreen = document.getElementById('trainerScreen');
+    const presetSelect = document.getElementById('presetSelect');
+    const fileInput = document.getElementById('fileInput');
+    const sourceText = document.getElementById('sourceText');
+    const setupError = document.getElementById('setupError');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const repeatBtn = document.getElementById('repeatBtn');
+    const textDisplay = document.getElementById('textDisplay');
+    const mobileInput = document.getElementById('mobileInput');
+    const hintBanner = document.getElementById('hintBanner');
+    const progressStat = document.getElementById('progressStat');
+    const errorStat = document.getElementById('errorStat');
+    const resultsBox = document.getElementById('resultsBox');
+    const speedValue = document.getElementById('speedValue');
+    const accuracyValue = document.getElementById('accuracyValue');
+    const mistakesValue = document.getElementById('mistakesValue');
+
+    let targetText = "";
+    let currentIndex = 0;
+    let hasError = false;
+    let mistakesCount = 0;
+    let totalKeyPresses = 0;
+    let startTime = null;
+    let isFinished = false;
+
+    function normalizeText(raw) {
+      return raw
+        .replace(/[«»„“”]/g, '"')
+        .replace(/[—–]/g, '-')
+        .replace(/ё/g, 'е')
+        .replace(/Ё/g, 'Е')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    presetSelect.addEventListener('change', () => {
+      const idx = presetSelect.value;
+      if (idx !== "") {
+        sourceText.value = PRESETS[Number(idx)];
+        sourceText.classList.remove('error');
+        setupError.textContent = "";
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (!file.name.toLowerCase().endsWith('.txt')) {
+        sourceText.classList.add('error');
+        setupError.textContent = "Программа поддерживает только файлы формата .txt. Пожалуйста, откройте ваш документ, скопируйте текст и вставьте его сюда.";
+        fileInput.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        sourceText.value = String(ev.target.result || "");
+        sourceText.classList.remove('error');
+        setupError.textContent = "";
+      };
+      reader.readAsText(file, "utf-8");
+    });
+
+    sourceText.addEventListener('input', () => {
+      if (sourceText.classList.contains('error')) {
+        sourceText.classList.remove('error');
+        setupError.textContent = "";
+      }
+    });
+
+    function renderText() {
+      let html = "";
+      for (let i = 0; i < targetText.length; i++) {
+        let cls = "char";
+        if (i < currentIndex) {
+          cls += " done";
+        } else if (i === currentIndex && !isFinished) {
+          cls += hasError ? " wrong" : " current";
+        }
+        const ch = targetText[i] === "&" ? "&amp;" : targetText[i] === "<" ? "&lt;" : targetText[i] === ">" ? "&gt;" : targetText[i];
+        html += `<span class="${cls}">${ch}</span>`;
+      }
+      textDisplay.innerHTML = html;
+      progressStat.textContent = `Символ: ${currentIndex} / ${targetText.length}`;
+      errorStat.textContent = `Ошибок: ${mistakesCount}`;
+    }
+
+    function startTraining() {
+      const cleaned = normalizeText(sourceText.value);
+      if (!cleaned) {
+        sourceText.classList.add('error');
+        setupError.textContent = "Вставьте текст конспекта или выберите один из 5 готовых текстов.";
+        return;
+      }
+
+      targetText = cleaned;
+      currentIndex = 0;
+      hasError = false;
+      mistakesCount = 0;
+      totalKeyPresses = 0;
+      startTime = null;
+      isFinished = false;
+
+      setupScreen.style.display = "none";
+      trainerScreen.style.display = "block";
+      resultsBox.style.display = "none";
+
+      hintBanner.className = "hint-banner";
+      hintBanner.textContent = `Нажмите клавишу «${targetText[0]}», чтобы начать отсчёт времени`;
+
+      renderText();
+      mobileInput.focus();
+    }
+
+    function finishTraining() {
+      isFinished = true;
+      const elapsedMinutes = Math.max((Date.now() - startTime) / 60000, 1 / 60);
+      const cpm = Math.round(targetText.length / elapsedMinutes);
+      const accuracy = totalKeyPresses > 0
+        ? Math.max(0, Math.round(((totalKeyPresses - mistakesCount) / totalKeyPresses) * 100))
+        : 100;
+
+      hintBanner.className = "hint-banner";
+      hintBanner.textContent = "Отлично! Абзац полностью набран без единой неисправленной ошибки.";
+
+      speedValue.textContent = `${cpm} зн./мин`;
+      accuracyValue.textContent = `${accuracy}%`;
+      mistakesValue.textContent = String(mistakesCount);
+      resultsBox.style.display = "block";
+      renderText();
+    }
+
+    function handleKeyInput(key) {
+      if (isFinished || !targetText) return;
+
+      if (key === "Backspace") {
+        if (hasError) {
+          hasError = false;
+          hintBanner.className = "hint-banner";
+          hintBanner.textContent = `Ошибка стёрта. Теперь нажмите правильную клавишу «${targetText[currentIndex]}»`;
+          renderText();
+        }
+        return;
+      }
+
+      if (key.length !== 1) return;
+
+      if (!startTime) {
+        startTime = Date.now();
+      }
+
+      // Если уже висит неисправленная опечатка — блокируем продвижение
+      if (hasError) {
+        hintBanner.className = "hint-banner error";
+        hintBanner.textContent = `Ввод заблокирован! Сначала нажмите Backspace (Стереть), а затем «${targetText[currentIndex]}»`;
+        return;
+      }
+
+      totalKeyPresses++;
+      const expected = targetText[currentIndex];
+      const normalizedKey = key === "ё" ? "е" : key === "Ё" ? "Е" : key;
+
+      if (normalizedKey === expected) {
+        currentIndex++;
+        if (currentIndex >= targetText.length) {
+          finishTraining();
+        } else {
+          hintBanner.className = "hint-banner";
+          hintBanner.textContent = `Следующий символ: «${targetText[currentIndex]}»`;
+          renderText();
+        }
+      } else {
+        hasError = true;
+        mistakesCount++;
+        const isRussianExpected = /[а-яА-Я]/.test(expected);
+        const isEnglishPressed = ENG_TO_RUS_LAYOUT.includes(key);
+
+        if (isRussianExpected && isEnglishPressed) {
+          hintBanner.className = "hint-banner warn";
+          hintBanner.textContent = `Похоже, включена английская раскладка! Переключите на RU, нажмите Backspace и введите «${expected}»`;
+        } else {
+          hintBanner.className = "hint-banner error";
+          hintBanner.textContent = `Опечатка (нажато «${key}» вместо «${expected}»). Нажмите Backspace, чтобы продолжить!`;
+        }
+        renderText();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (trainerScreen.style.display !== "block" || isFinished) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      if (e.key === "Backspace" || e.key.length === 1) {
+        e.preventDefault();
+        handleKeyInput(e.key);
+      }
+    });
+
+    textDisplay.addEventListener('click', () => mobileInput.focus());
+
+    startBtn.addEventListener('click', startTraining);
+    repeatBtn.addEventListener('click', startTraining);
+    resetBtn.addEventListener('click', () => {
+      trainerScreen.style.display = "none";
+      setupScreen.style.display = "block";
+    });
+  </script>
+</body>
+</html>
