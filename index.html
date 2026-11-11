@@ -55,7 +55,289 @@
       color: var(--text);
       cursor: pointer;
     }
-    sele
+    select { flex: 1; min-width: 220px; }
+    .file-label { display: inline-block; background: var(--bg); font-weight: 500; }
+    input[type="file"] { display: none; }
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      padding: 12px;
+      font-size: 16px;
+      font-family: inherit;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus { border-color: var(--accent); }
+    textarea.error { border-color: var(--danger); background: var(--danger-soft); }
+    .field-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .msg { min-height: 22px; margin: 8px 0 12px; font-size: 14px; color: var(--danger); font-weight: 500; }
+    .actions-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .primary-btn { background: var(--accent); color: #fff; border: none; font-weight: 600; padding: 12px 22px; font-size: 16px; }
+    .primary-btn:hover { opacity: 0.92; }
+    .secondary-btn { background: var(--bg); color: var(--text); }
+    .trainer-box { display: none; margin-top: 10px; }
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .hint-banner {
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .hint-banner.error { background: var(--danger-soft); color: var(--danger); }
+    .hint-banner.warn { background: var(--warn-soft); color: var(--warn); }
+    .text-display {
+      font-family: var(--mono);
+      font-size: 22px;
+      line-height: 1.65;
+      padding: 18px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: #faf9f6;
+      user-select: none;
+      cursor: text;
+      word-break: break-word;
+    }
+    .char { padding: 1px 0; border-radius: 3px; }
+    .char.done { color: var(--accent); background: var(--accent-soft); }
+    .char.current { background: #222; color: #fff; padding: 1px 3px; }
+    .char.wrong { background: var(--danger); color: #fff; padding: 1px 3px; }
+    .hidden-input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+    .results-box {
+      display: none;
+      margin-top: 18px;
+      padding: 20px;
+      border: 2px solid var(--accent);
+      border-radius: 10px;
+      background: var(--accent-soft);
+    }
+    .results-box h2 { margin: 0 0 12px; font-size: 20px; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .metric-card { background: #fff; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); }
+    .metric-label { font-size: 13px; color: var(--muted); }
+    .metric-value { font-size: 26px; font-weight: 700; color: var(--text); }
+    .history-section {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+    .history-section h3 { margin: 0 0 10px; font-size: 16px; }
+    .history-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: 14px; }
+    .history-item { display: flex; justify-content: space-between; padding: 8px 12px; background: var(--bg); border-radius: 6px; }
+    .history-empty { color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Тренажёр слепой печати</h1>
+    <p class="lead">Учите конспекты к семинару и тренируйте слепую печать одновременно</p>
+
+    <div id="setupScreen">
+      <div class="controls-row">
+        <select id="presetSelect">
+          <option value="">— Или выберите один из 5 готовых конспектов —</option>
+          <option value="0">1. Экономика: Спрос и предложение</option>
+          <option value="1">2. Право: Понятие гражданского договора</option>
+          <option value="2">3. Биология: Строение живой клетки</option>
+          <option value="3">4. Информатика: Что такое алгоритм</option>
+          <option value="4">5. Психология: Кратковременная и долговременная память</option>
+        </select>
+        <label class="file-label" for="fileInput">Загрузить .txt</label>
+        <input type="file" id="fileInput" accept=".txt">
+      </div>
+
+      <textarea id="sourceText" placeholder="Вставьте сюда скопированный абзац вашего конспекта (Ctrl+V) или выберите готовый текст выше..."></textarea>
+      <div class="field-meta">
+        <span id="charCount">Символов для набора: 0</span>
+        <span>Редкие кавычки и длинные тире заменяются автоматически</span>
+      </div>
+      <div id="setupError" class="msg"></div>
+
+      <div class="actions-row">
+        <button id="startBtn" class="primary-btn">Начать тренировку</button>
+        <button id="clearTextBtn" class="secondary-btn">Очистить поле</button>
+      </div>
+
+      <div class="history-section">
+        <h3>Последние тренировки (сохраняются в браузере)</h3>
+        <ul id="historyList" class="history-list"></ul>
+      </div>
+    </div>
+
+    <div id="trainerScreen" class="trainer-box">
+      <div class="status-bar">
+        <span id="progressStat">Символ: 0 / 0</span>
+        <span id="liveSpeedStat">Скорость: 0 зн./мин</span>
+        <span id="errorStat">Ошибок: 0</span>
+        <button id="resetBtn" class="secondary-btn">Другой текст</button>
+      </div>
+
+      <div id="hintBanner" class="hint-banner">
+        Нажмите первую подсвеченную букву на клавиатуре, не глядя на клавиши
+      </div>
+
+      <div id="textDisplay" class="text-display" tabindex="0"></div>
+      <input type="text" id="mobileInput" class="hidden-input" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+      <div id="resultsBox" class="results-box">
+        <h2>Конспект набран! Ваш результат:</h2>
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-label">Скорость печати</div>
+            <div id="speedValue" class="metric-value">0 зн./мин</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Точность</div>
+            <div id="accuracyValue" class="metric-value">100%</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Опечаток</div>
+            <div id="mistakesValue" class="metric-value">0</div>
+          </div>
+        </div>
+        <button id="repeatBtn" class="primary-btn">Повторить этот абзац</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PRESETS = [
+      "Закон спроса утверждает: при прочих равных условиях, чем ниже цена товара, тем больше величина спроса на него.",
+      "Договором признается соглашение двух или нескольких лиц об установлении, изменении или прекращении гражданских прав и обязанностей.",
+      "Клетка является элементарной структурной и функциональной единицей всех живых организмов, обладающей собственным обменом веществ.",
+      "Алгоритм - это конечная последовательность точных действий, формальное выполнение которых позволяет получить решение задачи.",
+      "Для перевода информации из кратковременной памяти в долговременную требуется осмысленное повторение и связывание с прошлым опытом."
+    ];
+
+    const STORAGE_TEXT_KEY = "typing_trainer_last_text";
+    const STORAGE_HISTORY_KEY = "typing_trainer_history";
+    const ENG_TO_RUS_LAYOUT = "qwertyuiop[]asdfghjkl;'zxcvbnm,.QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>";
+
+    const setupScreen = document.getElementById('setupScreen');
+    const trainerScreen = document.getElementById('trainerScreen');
+    const presetSelect = document.getElementById('presetSelect');
+    const fileInput = document.getElementById('fileInput');
+    const sourceText = document.getElementById('sourceText');
+    const charCount = document.getElementById('charCount');
+    const setupError = document.getElementById('setupError');
+    const startBtn = document.getElementById('startBtn');
+    const clearTextBtn = document.getElementById('clearTextBtn');
+    const historyList = document.getElementById('historyList');
+    const resetBtn = document.getElementById('resetBtn');
+    const repeatBtn = document.getElementById('repeatBtn');
+    const textDisplay = document.getElementById('textDisplay');
+    const mobileInput = document.getElementById('mobileInput');
+    const hintBanner = document.getElementById('hintBanner');
+    const progressStat = document.getElementById('progressStat');
+    const liveSpeedStat = document.getElementById('liveSpeedStat');
+    const errorStat = document.getElementById('errorStat');
+    const resultsBox = document.getElementById('resultsBox');
+    const speedValue = document.getElementById('speedValue');
+    const accuracyValue = document.getElementById('accuracyValue');
+    const mistakesValue = document.getElementById('mistakesValue');
+
+    let targetText = "";
+    let currentIndex = 0;
+    let hasError = false;
+    let mistakesCount = 0;
+    let totalKeyPresses = 0;
+    let startTime = null;
+    let isFinished = false;
+
+    function normalizeText(raw) {
+      return raw
+        .replace(/[«»„“”]/g, '"')
+        .replace(/[—–]/g, '-')
+        .replace(/ё/g, 'е')
+        .replace(/Ё/g, 'Е')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function updateCharCounter() {
+      const cleaned = normalizeText(sourceText.value);
+      charCount.textContent = `Символов для набора: ${cleaned.length}`;
+    }
+
+    function saveHistoryEntry(cpm, accuracy, mistakes) {
+      const history = JSON.parse(localStorage.getItem(STORAGE_HISTORY_KEY) || "[]");
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      history.unshift({
+        time: timeStr,
+        cpm: cpm,
+        accuracy: accuracy,
+        mistakes: mistakes,
+        length: targetText.length
+      });
+      localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, 10)));
+    }
+
+    function renderHistory() {
+      const history = JSON.parse(localStorage.getItem(STORAGE_HISTORY_KEY) || "[]");
+      if (history.length === 0) {
+        historyList.innerHTML = `<li class="history-empty">Пока нет завершённых тренировок. Пройдите первый абзац!</li>`;
+        return;
+      }
+      historyList.innerHTML = history.map((item, idx) => (
+        `<li class="history-item">
+          <span>#${idx + 1} (${item.time}, ${item.length} зн.)</span>
+          <strong>${item.cpm} зн./мин · Точность ${item.accuracy}% (ошибок: ${item.mistakes})</strong>
+        </li>`
+      )).join("");
+    }
+
+    const savedText = localStorage.getItem(STORAGE_TEXT_KEY);
+    if (savedText) {
+      sourceText.value = savedText;
+    }
+    updateCharCounter();
+    renderHistory();
+
+    presetSelect.addEventListener('change', () => {
+      const idx = presetSelect.value;
+      if (idx !== "") {
+        sourceText.value = PRESETS[Number(idx)];
+        localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
+        sourceText.classList.remove('error');
+        setupError.textContent = "";
+        updateCharCounter();
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (!file.name.toLowerCase().endsWith('.txt')) {
+        sourceText.classList.add('error');
+        setupError.textContent = "Программа поддерживает только файлы формата .txt. Пожалуйста, откройте ваш документ, скопируйте текст и вставьте его сюда.";
+        fileInput.value = "";
         return;
       }
 
