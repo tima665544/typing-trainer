@@ -275,9 +275,9 @@
         <input type="file" id="fileInput" accept=".txt">
       </div>
 
-      <textarea id="sourceText" placeholder="Вставьте сюда скопированный абзац вашего конспекта (Ctrl+V) или выберите готовый текст выше..."></textarea>
+      <textarea id="sourceText" placeholder="Вставьте сюда скопированный абзац вашего конспекта (до 3000 символов) или выберите готовый текст выше..."></textarea>
       <div class="field-meta">
-        <span id="charCount">Символов для набора: 0</span>
+        <span id="charCount">Символов для набора: 0 / 3000</span>
         <span>Редкие кавычки и длинные тире заменяются автоматически</span>
       </div>
       <div id="setupError" class="msg"></div>
@@ -350,6 +350,7 @@
     const API_TIMEOUT_MS = 5000;
     const MAX_WIKI_LENGTH = 260;
     const MAX_HISTORY_ITEMS = 100;
+    const MAX_TEXT_LENGTH = 3000;
 
     const PRESETS = [
       "Закон спроса утверждает: при прочих равных условиях, чем ниже цена товара, тем больше величина спроса на него.",
@@ -507,7 +508,7 @@
 
     function updateCharCounter() {
       const cleaned = normalizeText(sourceText.value);
-      charCount.textContent = `Символов для набора: ${cleaned.length}`;
+      charCount.textContent = `Символов для набора: ${cleaned.length} / ${MAX_TEXT_LENGTH}`;
     }
 
     function saveHistoryEntry(cpm, accuracy, mistakes) {
@@ -515,29 +516,41 @@
       const now = new Date();
       const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
       history.unshift({
-        time: timeStr,
-        cpm: cpm,
-        accuracy: accuracy,
-        mistakes: mistakes,
-        length: targetText.length
+        time: String(timeStr),
+        cpm: Number(cpm) || 0,
+        accuracy: Number(accuracy) || 0,
+        mistakes: Number(mistakes) || 0,
+        length: Number(targetText.length) || 0
       });
       localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)));
     }
 
     function renderHistory() {
       const history = safeReadHistory();
+      historyList.innerHTML = "";
       if (history.length === 0) {
         clearHistoryBtn.style.display = "none";
-        historyList.innerHTML = `<li class="history-empty">Пока пусто. Вставьте конспект выше и нажмите «Начать тренировку»!</li>`;
+        const emptyLi = document.createElement("li");
+        emptyLi.className = "history-empty";
+        emptyLi.textContent = "Пока пусто. Вставьте конспект выше и нажмите «Начать тренировку»!";
+        historyList.appendChild(emptyLi);
         return;
       }
       clearHistoryBtn.style.display = "inline-block";
-      historyList.innerHTML = history.map((item, idx) => (
-        `<li class="history-item">
-          <span>#${idx + 1} (${item.time}, ${item.length} зн.)</span>
-          <strong>${item.cpm} зн./мин · Точность ${item.accuracy}% (ошибок: ${item.mistakes})</strong>
-        </li>`
-      )).join("");
+      history.forEach((item, idx) => {
+        const li = document.createElement("li");
+        li.className = "history-item";
+
+        const leftSpan = document.createElement("span");
+        leftSpan.textContent = `#${idx + 1} (${String(item.time || "")}, ${Number(item.length) || 0} зн.)`;
+
+        const rightStrong = document.createElement("strong");
+        rightStrong.textContent = `${Number(item.cpm) || 0} зн./мин · Точность ${Number(item.accuracy) || 0}% (ошибок: ${Number(item.mistakes) || 0})`;
+
+        li.appendChild(leftSpan);
+        li.appendChild(rightStrong);
+        historyList.appendChild(li);
+      });
     }
 
     const savedText = localStorage.getItem(STORAGE_TEXT_KEY);
@@ -617,19 +630,22 @@
     }
 
     function renderText() {
-      let html = "";
+      textDisplay.innerHTML = "";
+      const fragment = document.createDocumentFragment();
       for (let i = 0; i < targetText.length; i++) {
+        const span = document.createElement("span");
         let cls = "char";
         if (i < currentIndex) {
           cls += " done";
         } else if (i === currentIndex && !isFinished) {
           cls += hasError ? " wrong" : " current";
+          span.id = "activeChar";
         }
-        const ch = targetText[i] === "&" ? "&amp;" : targetText[i] === "<" ? "&lt;" : targetText[i] === ">" ? "&gt;" : targetText[i];
-        const idAttr = i === currentIndex ? ' id="activeChar"' : '';
-        html += `<span class="${cls}"${idAttr}>${ch}</span>`;
+        span.className = cls;
+        span.textContent = targetText[i];
+        fragment.appendChild(span);
       }
-      textDisplay.innerHTML = html;
+      textDisplay.appendChild(fragment);
       progressStat.textContent = `Символ: ${currentIndex} / ${targetText.length}`;
       liveSpeedStat.textContent = `Скорость: ${getCurrentCpm()} зн./мин`;
       errorStat.textContent = `Ошибок: ${mistakesCount}`;
@@ -648,6 +664,13 @@
         sourceText.classList.add('error');
         setupError.className = "msg";
         setupError.textContent = "Вставьте текст конспекта или выберите один из готовых текстов.";
+        return;
+      }
+
+      if (cleaned.length > MAX_TEXT_LENGTH) {
+        sourceText.classList.add('error');
+        setupError.className = "msg";
+        setupError.textContent = `Текст слишком длинный (${cleaned.length} символов при максимуме ${MAX_TEXT_LENGTH}). Сократите отрывок конспекта.`;
         return;
       }
 
