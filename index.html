@@ -420,6 +420,12 @@
         .trim();
     }
 
+    function clearSetupError() {
+      sourceText.classList.remove('error');
+      setupError.className = "msg";
+      setupError.textContent = "";
+    }
+
     function safeReadHistory() {
       try {
         const raw = localStorage.getItem(STORAGE_HISTORY_KEY);
@@ -437,7 +443,7 @@
     async function loadWikiNote() {
       presetSelect.disabled = true;
       startBtn.disabled = true;
-      sourceText.classList.remove('error');
+      clearSetupError();
       setupError.className = "msg loading";
       setupError.textContent = "Загружаю конспект из Википедии…";
 
@@ -472,8 +478,7 @@
 
         sourceText.value = shortNote;
         localStorage.setItem(STORAGE_TEXT_KEY, shortNote);
-        setupError.className = "msg";
-        setupError.textContent = "";
+        clearSetupError();
         updateCharCounter();
       } catch (err) {
         clearTimeout(timeoutId);
@@ -551,9 +556,7 @@
       if (val !== "") {
         sourceText.value = PRESETS[Number(val)];
         localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
-        sourceText.classList.remove('error');
-        setupError.className = "msg";
-        setupError.textContent = "";
+        clearSetupError();
         updateCharCounter();
       }
     });
@@ -574,9 +577,7 @@
       reader.onload = (ev) => {
         sourceText.value = String(ev.target.result || "");
         localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
-        sourceText.classList.remove('error');
-        setupError.className = "msg";
-        setupError.textContent = "";
+        clearSetupError();
         updateCharCounter();
       };
       reader.onerror = () => {
@@ -591,8 +592,7 @@
       localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
       updateCharCounter();
       if (sourceText.classList.contains('error')) {
-        sourceText.classList.remove('error');
-        setupError.textContent = "";
+        clearSetupError();
       }
     });
 
@@ -600,8 +600,7 @@
       sourceText.value = "";
       presetSelect.value = "";
       localStorage.removeItem(STORAGE_TEXT_KEY);
-      sourceText.classList.remove('error');
-      setupError.textContent = "";
+      clearSetupError();
       updateCharCounter();
       sourceText.focus();
     });
