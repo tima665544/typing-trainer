@@ -192,7 +192,24 @@
       padding-top: 18px;
       border-top: 1px solid var(--line);
     }
-    .history-section h3 { margin: 0 0 10px; font-size: 16px; }
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .history-section h3 { margin: 0; font-size: 16px; }
+    .link-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 14px;
+      min-height: auto;
+      padding: 4px 6px;
+      text-decoration: underline;
+    }
+    .link-btn:hover { color: var(--danger); }
     .history-list {
       list-style: none;
       padding: 0;
@@ -263,7 +280,10 @@
       </div>
 
       <div class="history-section">
-        <h3>Последние тренировки (сохраняются в браузере)</h3>
+        <div class="history-header">
+          <h3>Последние тренировки (сохраняются в браузере)</h3>
+          <button id="clearHistoryBtn" class="link-btn" style="display:none;">Очистить историю</button>
+        </div>
         <ul id="historyList" class="history-list"></ul>
       </div>
     </div>
@@ -350,6 +370,7 @@
     const setupError = document.getElementById('setupError');
     const startBtn = document.getElementById('startBtn');
     const clearTextBtn = document.getElementById('clearTextBtn');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
     const historyList = document.getElementById('historyList');
     const resetBtn = document.getElementById('resetBtn');
     const repeatBtn = document.getElementById('repeatBtn');
@@ -487,9 +508,11 @@
     function renderHistory() {
       const history = safeReadHistory();
       if (history.length === 0) {
+        clearHistoryBtn.style.display = "none";
         historyList.innerHTML = `<li class="history-empty">Пока пусто. Вставьте конспект выше и нажмите «Начать тренировку»!</li>`;
         return;
       }
+      clearHistoryBtn.style.display = "inline-block";
       historyList.innerHTML = history.map((item, idx) => (
         `<li class="history-item">
           <span>#${idx + 1} (${item.time}, ${item.length} зн.)</span>
@@ -567,6 +590,11 @@
       setupError.textContent = "";
       updateCharCounter();
       sourceText.focus();
+    });
+
+    clearHistoryBtn.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_HISTORY_KEY);
+      renderHistory();
     });
 
     function getCurrentCpm() {
