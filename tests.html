@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Тренажёр слепой печати — Тесты MVP</title>
+  <style>
+    :root {
+      --bg: #f5f3ee;
+      --card: #ffffff;
+      --text: #1d1a16;
+      --muted: #6f685e;
+      --ok: #2e8b57;
+      --ok-soft: #e8f3dc;
+      --fail: #c93b2b;
+      --fail-soft: #fde8e5;
+      --line: #ded8ce;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 24px 16px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+    .app {
+      max-width: 820px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .bar {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    button {
+      padding: 10px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--ok);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    label {
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+    li {
+      padding: 12px 14px;
+      background: var(--bg);
+      border-left: 6px solid var(--line);
+      border-radius: 6px;
+    }
+    li.ok {
+      border-color: var(--ok);
+      background: var(--ok-soft);
+    }
+    li.fail {
+      border-color: var(--fail);
+      background: var(--fail-soft);
+    }
+    .name {
+      font-weight: 600;
+    }
+    .why {
+      color: var(--fail);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .sum {
+      margin-top: 16px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .sum.ok { color: var(--ok); }
+    .sum.fail { color: var(--fail); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Автотесты MVP «Тренажёр слепой печати»</h1>
+    <p class="sub">Проверка критериев приёмки в формате «Дано / Когда / Тогда»</p>
+
+    <div class="bar">
+      <button id="runBtn">Запустить тесты</button>
+      <label>
+        <input type="checkbox" id="breakLock">
+        сломать код нарочно: отключить блокировку при опечатке и проверку пустого поля
+      </label>
+    </div>
+
+    <ul id="resultsList"></ul>
+    <div id="summaryBox" class="sum">Нажмите «Запустить тесты», чтобы выполнить проверку</div>
+  </div>
+
+  <script>
+    function createTrainerModel(options) {
+      const state = {
+        text: "",
+        index: 0,
+        hasError: false,
+        mistakes: 0,
+        finished: false,
+        errorMessage: "",
+        missedChars: []
+      };
+
+      function normalizeText(raw) {
+        return raw
+          .replace(/[«»„“”]/g, '"')
+          .replace(/[—–]/g, '-')
+          .replace(/ё/g, 'е')
+          .replace(/Ё/g, 'Е')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function start(rawText) {
+        const cleaned = normalizeText(rawText);
+        if (!options.breakCode && cleaned === "") {
+          state.errorMessage = "Вставьте текст конспекта или выберите один из готовых текстов.";
+          return false;
+        }
+        state.text = cleaned;
+        state.index = 0;
+        state.hasError = false;
+        state.mistakes = 0;
+        state.finished = false;
+        state.errorMessage = "";
+        state.missedChars = [];
+        return true;
+      }
+
+      function loadFile(fileName, content) {
+        if (!fileName.toLowerCase().endsWith(".txt")) {
+          state.errorMessage = "Программа поддерживает только файлы формата .txt.";
+          return false;
+        }
+        return start(content);
+      }
+
+      function pressKey(key) {
+        if (state.finished || !state.text) return;
+
+        if (key === "Backspace") {
+          if (state.hasError) {
+            state.hasError = false;
+          }
+          return;
+        }
+
+        if (!options.breakCode && state.hasError) {
+          return;
+        }
+
+        const expected = state.text[state.index];
+        const normalizedKey = key === "ё" ? "е" : key === "Ё" ? "Е" : key;
+
+        if (normalizedKey === expected) {
+          state.index++;
+          if (state.index >= state.text.length) {
+            state.finished = true;
+          }
+        } else {
+          state.hasError = true;
+          state.mistakes++;
+          state.missedChars.push(expected);
+          if (options.breakCode) {
+            state.index++;
+          }
+        }
+      }
+
+      function applyWikiResponse(apiData, currentFieldText) {
+        if (!apiData || !apiData.extract) {
+          state.errorMessage = "Нет связи с Википедией (ошибка сети). Ваш текущий текст в поле сохранён.";
+          return currentFieldText;
+        }
+        return normalizeText(apiData.extract);
+      }
+
+      return { state, normalizeText, start, loadFile, pressKey, applyWikiResponse };
+    }
+
+    const TESTS = [
+      {
+        name: "Дано: поле ввода пустое. Когда: нажали «Начать тренировку». Тогда: тренировка не началась, показано сообщение «Вставьте текст конспекта…»",
+        run: (app) => {
+          const started = app.start("   ");
+          const ok = started === false && app.state.errorMessage.includes("Вставьте текст конспекта");
+          return {
+            ok,
+            expected: "тренировка не запущена и показана ошибка пустого поля",
+            got: started ? "пустая тренировка запустилась" : app.state.errorMessage
+          };
+        }
+      },
+      {
+        name: "Дано: конспект содержит «кавычки», длинное тире — и букву ё. Когда: текст вставлен в тренажёр. Тогда: символы заменены на стандартные (\", -, е)",
+        run: (app) => {
+          app.start("«Привет» — объём");
+          const expectedText = '"Привет" - объем';
+          return {
+            ok: app.state.text === expectedText,
+            expected: expectedText,
+            got: app.state.text
+          };
+        }
+      },
+      {
+        name: "Дано: текущая буква «О». Когда: нажата неверная буква «А», а затем «К». Тогда: ввод заблокирован на букве «О» до нажатия Backspace",
+        run: (app) => {
+          app.start("Окно");
+          app.pressKey("А");
+          app.pressKey("к");
+          const blockedAtZero = app.state.index === 0 && app.state.hasError === true;
+          app.pressKey("Backspace");
+          app.pressKey("О");
+          const movedAfterBackspace = app.state.index === 1 && app.state.hasError === false;
+          return {
+            ok: blockedAtZero && movedAfterBackspace,
+            expected: "курсор стоит на 0 до Backspace, затем переходит на 1",
+            got: "позиция курсора до Backspace: " + (blockedAtZero ? "0" : app.state.index)
+          };
+        }
+      },
+      {
+        name: "Дано: выбран файл конспекта. Когда: загружают файл «лекция.docx». Тогда: загрузка отклонена с сообщением «только файлы формата .txt»",
+        run: (app) => {
+          const loaded = app.loadFile("лекция.docx", "Текст");
+          return {
+            ok: loaded === false && app.state.errorMessage.includes(".txt"),
+            expected: "отказ и сообщение про .txt",
+            got: loaded ? "файл .docx был принят" : app.state.errorMessage
+          };
+        }
+      },
+      {
+        name: "Дано: запущен текст «Кот». Когда: введены все буквы с одной опечаткой на «о». Тогда: тренировка завершена, в проблемных клавишах записана «о»",
+        run: (app) => {
+          app.start("Кот");
+          app.pressKey("К");
+          app.pressKey("а");
+          app.pressKey("Backspace");
+          app.pressKey("о");
+          app.pressKey("т");
+          return {
+            ok: app.state.finished === true && app.state.mistakes === 1 && app.state.missedChars[0] === "о",
+            expected: "завершено, ошибок: 1, проблемная буква: «о»",
+            got: `завершено: ${app.state.finished}, ошибок: ${app.state.mistakes}`
+          };
+        }
+      },
+      {
+        name: "Дано: в поле уже есть конспект студента. Когда: API Википедии не ответил (нет сети). Тогда: старый текст в поле сохранён, показана ошибка связи",
+        run: (app) => {
+          const resultText = app.applyWikiResponse(null, "Мой сохранённый конспект");
+          return {
+            ok: resultText === "Мой сохранённый конспект" && app.state.errorMessage.includes("Нет связи"),
+            expected: "текст «Мой сохранённый конспект» сохранён + ошибка словами",
+            got: resultText
+          };
+        }
+      }
+    ];
+
+    function runAllTests() {
+      const breakCode = document.getElementById("breakLock").checked;
+      const list = document.getElementById("resultsList");
+      const summary = document.getElementById("summaryBox");
+      list.innerHTML = "";
+      let passed = 0;
+
+      TESTS.forEach((t, i) => {
+        const app = createTrainerModel({ breakCode });
+        const res = t.run(app);
+        const li = document.createElement("li");
+        li.className = res.ok ? "ok" : "fail";
+        li.innerHTML = `<div class="name">${res.ok ? "✓" : "✗"} Тест ${i + 1}. ${t.name}</div>` +
+          (res.ok ? "" : `<div class="why">ожидали: ${res.expected} — получили: ${res.got}</div>`);
+        list.appendChild(li);
+        if (res.ok) passed++;
+      });
+
+      summary.className = "sum " + (passed === TESTS.length ? "ok" : "fail");
+      summary.textContent = passed === TESTS.length
+        ? `Все ${TESTS.length} из ${TESTS.length} тестов зелёные — Quality Gates пройдены, можно делать commit`
+        : `Зелёных ${passed} из ${TESTS.length} — коммитить нельзя, сначала почините код`;
+    }
+
+    document.getElementById("runBtn").addEventListener("click", runAllTests);
+  </script>
+</body>
+</html>
