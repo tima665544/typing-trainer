@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Тренажёр слепой печати — Занятие 8</title>
+  <title>Тренажёр слепой печати</title>
   <style>
     :root {
       --bg: #f5f3ee;
@@ -38,28 +38,7 @@
       padding: 24px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.04);
     }
-    .top-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-    h1 { margin: 0; font-size: 24px; }
-    .api-badge {
-      font-size: 13px;
-      padding: 6px 10px;
-      border-radius: 6px;
-      background: var(--bg);
-      border: 1px solid var(--line);
-      color: var(--muted);
-    }
-    .api-badge.error {
-      background: var(--danger-soft);
-      border-color: var(--danger);
-      color: var(--danger);
-    }
+    h1 { margin: 0 0 6px; font-size: 24px; }
     .lead { margin: 0 0 20px; color: var(--muted); font-size: 16px; }
     .controls-row {
       display: flex;
@@ -79,6 +58,7 @@
       cursor: pointer;
     }
     select { flex: 1; min-width: 220px; }
+    select:disabled { opacity: 0.6; cursor: wait; }
     .file-label { display: inline-flex; align-items: center; justify-content: center; background: var(--bg); font-weight: 500; }
     input[type="file"] { display: none; }
     textarea {
@@ -105,11 +85,11 @@
       color: var(--muted);
     }
     .msg { min-height: 22px; margin: 8px 0 12px; font-size: 15px; color: var(--danger); font-weight: 500; }
+    .msg.loading { color: var(--accent); }
     .actions-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .primary-btn { background: var(--accent); color: #fff; border: none; font-weight: 600; padding: 12px 22px; font-size: 16px; min-height: 48px; }
     .primary-btn:hover { opacity: 0.92; }
     .secondary-btn { background: var(--bg); color: var(--text); min-height: 44px; }
-    .secondary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .danger-btn {
       display: none;
       width: 100%;
@@ -252,23 +232,20 @@
 </head>
 <body>
   <div class="app">
-    <div class="top-header">
-      <h1>Тренажёр слепой печати</h1>
-      <div id="apiStatusBadge" class="api-badge">Курс ЦБ: загружаю…</div>
-    </div>
+    <h1>Тренажёр слепой печати</h1>
     <p class="lead">Учите конспекты к семинару и тренируйте слепую печать одновременно</p>
 
     <div id="setupScreen">
       <div class="controls-row">
         <select id="presetSelect">
-          <option value="">— Или выберите один из 5 готовых конспектов —</option>
+          <option value="">— Выберите готовый конспект или загрузите из Википедии —</option>
           <option value="0">1. Экономика: Спрос и предложение</option>
           <option value="1">2. Право: Понятие гражданского договора</option>
           <option value="2">3. Биология: Строение живой клетки</option>
           <option value="3">4. Информатика: Что такое алгоритм</option>
           <option value="4">5. Психология: Кратковременная и долговременная память</option>
+          <option value="wiki_api">🌐 Случайный конспект из Википедии (API)</option>
         </select>
-        <button id="loadApiNoteBtn" class="secondary-btn">Конспект ЦБ РФ (API)</button>
         <label class="file-label" for="fileInput">Загрузить .txt</label>
         <input type="file" id="fileInput" accept=".txt">
       </div>
@@ -338,10 +315,9 @@
   </div>
 
   <script>
-    const CBR_API_URL = "https://www.cbr-xml-daily.ru/daily_json.js";
+    const WIKI_API_URL = "https://ru.wikipedia.org/api/rest_v1/page/random/summary";
     const STORAGE_TEXT_KEY = "typing_trainer_last_text";
     const STORAGE_HISTORY_KEY = "typing_trainer_history";
-    const STORAGE_RATE_KEY = "typing_trainer_last_rate";
 
     const PRESETS = [
       "Закон спроса утверждает: при прочих равных условиях, чем ниже цена товара, тем больше величина спроса на него.",
@@ -365,8 +341,6 @@
 
     const ENG_TO_RUS_LAYOUT = "qwertyuiop[]asdfghjkl;'zxcvbnm,.QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>";
 
-    const apiStatusBadge = document.getElementById('apiStatusBadge');
-    const loadApiNoteBtn = document.getElementById('loadApiNoteBtn');
     const setupScreen = document.getElementById('setupScreen');
     const trainerScreen = document.getElementById('trainerScreen');
     const presetSelect = document.getElementById('presetSelect');
@@ -411,7 +385,6 @@
         .trim();
     }
 
-    // Безопасное чтение истории из localStorage (исправление по аудиту Занятия 8)
     function safeReadHistory() {
       try {
         const raw = localStorage.getItem(STORAGE_HISTORY_KEY);
@@ -419,23 +392,28 @@
         const parsed = JSON.parse(raw);
         return Array.isArray(parsed) ? parsed : [];
       } catch (e) {
+        setupError.className = "msg";
         setupError.textContent = "Локальная история тренировок была повреждена и сброшена.";
         localStorage.removeItem(STORAGE_HISTORY_KEY);
         return [];
       }
     }
 
-    async function fetchCbrRates(insertIntoField) {
-      const cachedRate = localStorage.getItem(STORAGE_RATE_KEY);
-      apiStatusBadge.classList.remove('error');
-      apiStatusBadge.textContent = "Курс ЦБ: загружаю…";
-      loadApiNoteBtn.disabled = true;
+    async function loadWikiNote() {
+      presetSelect.disabled = true;
+      startBtn.disabled = true;
+      sourceText.classList.remove('error');
+      setupError.className = "msg loading";
+      setupError.textContent = "Загружаю конспект из Википедии…";
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       try {
-        const response = await fetch(CBR_API_URL, { signal: controller.signal });
+        const response = await fetch(WIKI_API_URL, {
+          cache: "no-store",
+          signal: controller.signal
+        });
         clearTimeout(timeoutId);
 
         if (!response.ok) {
@@ -443,38 +421,33 @@
         }
 
         const data = await response.json();
-        if (!data || !data.Valute || !data.Valute.USD || !data.Valute.EUR) {
+        if (!data || !data.extract) {
           throw new Error("Пустой ответ API");
         }
 
-        const usd = Number(data.Valute.USD.Value).toFixed(2).replace('.', ',');
-        const eur = Number(data.Valute.EUR.Value).toFixed(2).replace('.', ',');
-        const badgeText = `Курс ЦБ: USD ${usd} ₽ · EUR ${eur} ₽`;
+        const cleanedExtract = normalizeText(
+          data.extract
+            .replace(/\([^)]*\)/g, "")
+            .replace(/[^а-яА-Я0-9\s.,:;!?"-]/g, " ")
+        );
 
-        localStorage.setItem(STORAGE_RATE_KEY, badgeText);
-        apiStatusBadge.textContent = badgeText;
+        const shortNote = cleanedExtract.length > 260
+          ? cleanedExtract.slice(0, 260).replace(/\s+\S*$/, "") + "."
+          : cleanedExtract;
 
-        if (insertIntoField) {
-          const noteText = `Экономическая сводка ЦБ РФ: официальный курс доллара США составляет ${usd} руб., а курс евро равен ${eur} руб. Изменение валютного курса влияет на стоимость импорта и инфляционные ожидания.`;
-          sourceText.value = noteText;
-          localStorage.setItem(STORAGE_TEXT_KEY, noteText);
-          sourceText.classList.remove('error');
-          setupError.textContent = "";
-          updateCharCounter();
-        }
+        sourceText.value = shortNote;
+        localStorage.setItem(STORAGE_TEXT_KEY, shortNote);
+        setupError.className = "msg";
+        setupError.textContent = "";
+        updateCharCounter();
       } catch (err) {
         clearTimeout(timeoutId);
-        apiStatusBadge.classList.add('error');
-        if (cachedRate) {
-          apiStatusBadge.textContent = `${cachedRate} (нет связи, старое значение)`;
-        } else {
-          apiStatusBadge.textContent = "Курс недоступен (нет связи)";
-        }
-        if (insertIntoField) {
-          setupError.textContent = "Нет связи с сервером ЦБ РФ. Ваш текущий текст в поле сохранён — попробуйте снова или выберите готовый конспект.";
-        }
+        setupError.className = "msg";
+        setupError.textContent = "Нет связи с Википедией (ошибка сети). Ваш текущий текст в поле сохранён — попробуйте снова или выберите конспект 1–5.";
       } finally {
-        loadApiNoteBtn.disabled = false;
+        presetSelect.disabled = false;
+        startBtn.disabled = false;
+        presetSelect.value = "";
       }
     }
 
@@ -531,18 +504,18 @@
     }
     updateCharCounter();
     renderHistory();
-    fetchCbrRates(false);
-
-    loadApiNoteBtn.addEventListener('click', () => {
-      fetchCbrRates(true);
-    });
 
     presetSelect.addEventListener('change', () => {
-      const idx = presetSelect.value;
-      if (idx !== "") {
-        sourceText.value = PRESETS[Number(idx)];
+      const val = presetSelect.value;
+      if (val === "wiki_api") {
+        loadWikiNote();
+        return;
+      }
+      if (val !== "") {
+        sourceText.value = PRESETS[Number(val)];
         localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
         sourceText.classList.remove('error');
+        setupError.className = "msg";
         setupError.textContent = "";
         updateCharCounter();
       }
@@ -554,6 +527,7 @@
 
       if (!file.name.toLowerCase().endsWith('.txt')) {
         sourceText.classList.add('error');
+        setupError.className = "msg";
         setupError.textContent = "Программа поддерживает только файлы формата .txt. Пожалуйста, откройте ваш документ, скопируйте текст и вставьте его сюда.";
         fileInput.value = "";
         return;
@@ -564,11 +538,13 @@
         sourceText.value = String(ev.target.result || "");
         localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
         sourceText.classList.remove('error');
+        setupError.className = "msg";
         setupError.textContent = "";
         updateCharCounter();
       };
       reader.onerror = () => {
         sourceText.classList.add('error');
+        setupError.className = "msg";
         setupError.textContent = "Не удалось прочитать файл .txt. Попробуйте скопировать текст вручную.";
       };
       reader.readAsText(file, "utf-8");
@@ -629,7 +605,8 @@
       const cleaned = normalizeText(sourceText.value);
       if (!cleaned) {
         sourceText.classList.add('error');
-        setupError.textContent = "Вставьте текст конспекта или выберите один из 5 готовых текстов.";
+        setupError.className = "msg";
+        setupError.textContent = "Вставьте текст конспекта или выберите один из готовых текстов.";
         return;
       }
 
