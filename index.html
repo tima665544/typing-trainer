@@ -39,7 +39,7 @@
       box-shadow: 0 4px 14px rgba(0,0,0,0.04);
     }
     h1 { margin: 0 0 6px; font-size: 24px; }
-    .lead { margin: 0 0 20px; color: var(--muted); font-size: 15px; }
+    .lead { margin: 0 0 20px; color: var(--muted); font-size: 16px; }
     .controls-row {
       display: flex;
       flex-wrap: wrap;
@@ -58,7 +58,7 @@
       cursor: pointer;
     }
     select { flex: 1; min-width: 220px; }
-    .file-label { display: inline-flex; align-items: center; background: var(--bg); font-weight: 500; }
+    .file-label { display: inline-flex; align-items: center; justify-content: center; background: var(--bg); font-weight: 500; }
     input[type="file"] { display: none; }
     textarea {
       width: 100%;
@@ -83,11 +83,22 @@
       font-size: 14px;
       color: var(--muted);
     }
-    .msg { min-height: 22px; margin: 8px 0 12px; font-size: 14px; color: var(--danger); font-weight: 500; }
+    .msg { min-height: 22px; margin: 8px 0 12px; font-size: 15px; color: var(--danger); font-weight: 500; }
     .actions-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .primary-btn { background: var(--accent); color: #fff; border: none; font-weight: 600; padding: 12px 22px; font-size: 16px; }
+    .primary-btn { background: var(--accent); color: #fff; border: none; font-weight: 600; padding: 12px 22px; font-size: 16px; min-height: 48px; }
     .primary-btn:hover { opacity: 0.92; }
-    .secondary-btn { background: var(--bg); color: var(--text); }
+    .secondary-btn { background: var(--bg); color: var(--text); min-height: 44px; }
+    .danger-btn {
+      display: none;
+      width: 100%;
+      margin-top: 12px;
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      font-weight: 600;
+      font-size: 16px;
+      min-height: 48px;
+    }
     .trainer-box { display: none; margin-top: 10px; }
     .status-bar {
       display: flex;
@@ -130,18 +141,21 @@
       padding: 10px 14px;
       border-radius: 8px;
       margin-bottom: 12px;
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 500;
       background: var(--accent-soft);
       color: var(--accent);
     }
     .hint-banner.error { background: var(--danger-soft); color: var(--danger); }
     .hint-banner.warn { background: var(--warn-soft); color: var(--warn); }
+    /* Состояние «Много данных»: окно текста прокручивается, кнопки остаются на виду */
     .text-display {
       font-family: var(--mono);
-      font-size: 22px;
+      font-size: 20px;
       line-height: 1.65;
-      padding: 18px;
+      padding: 16px;
+      max-height: 260px;
+      overflow-y: auto;
       border: 2px solid var(--line);
       border-radius: 10px;
       background: #faf9f6;
@@ -170,17 +184,51 @@
       margin-bottom: 16px;
     }
     .metric-card { background: #fff; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); }
-    .metric-label { font-size: 13px; color: var(--muted); }
-    .metric-value { font-size: 26px; font-weight: 700; color: var(--text); }
+    .metric-label { font-size: 14px; color: var(--muted); }
+    .metric-value { font-size: 24px; font-weight: 700; color: var(--text); }
     .history-section {
       margin-top: 24px;
       padding-top: 18px;
       border-top: 1px solid var(--line);
     }
     .history-section h3 { margin: 0 0 10px; font-size: 16px; }
-    .history-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: 14px; }
-    .history-item { display: flex; justify-content: space-between; padding: 8px 12px; background: var(--bg); border-radius: 6px; }
-    .history-empty { color: var(--muted); font-size: 14px; }
+    /* Состояние «Много записей»: список истории прокручивается */
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 8px;
+      font-size: 15px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+    }
+    .history-empty {
+      color: var(--muted);
+      font-size: 15px;
+      padding: 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      text-align: center;
+    }
+    /* Адаптация под телефон шириной 360px: одна колонка, главная кнопка внизу под пальцем */
+    @media (max-width: 480px) {
+      body { padding: 10px 8px; }
+      .app { padding: 16px 12px; }
+      .controls-row { flex-direction: column; align-items: stretch; }
+      select, .file-label, .actions-row button { width: 100%; }
+      .actions-row { flex-direction: column-reverse; align-items: stretch; }
+      .text-display { font-size: 18px; max-height: 210px; padding: 12px; }
+    }
   </style>
 </head>
 <body>
@@ -210,8 +258,8 @@
       <div id="setupError" class="msg"></div>
 
       <div class="actions-row">
-        <button id="startBtn" class="primary-btn">Начать тренировку</button>
         <button id="clearTextBtn" class="secondary-btn">Очистить поле</button>
+        <button id="startBtn" class="primary-btn">Начать тренировку</button>
       </div>
 
       <div class="history-section">
@@ -228,7 +276,6 @@
         <button id="resetBtn" class="secondary-btn">Другой текст</button>
       </div>
 
-      <!-- Компонент 1 (Занятие 7): Подсказка клавиши и пальца -->
       <div id="fingerCard" class="finger-card">
         <div id="keyBadge" class="key-badge">А</div>
         <div class="finger-info">
@@ -243,6 +290,9 @@
 
       <div id="textDisplay" class="text-display" tabindex="0"></div>
       <input type="text" id="mobileInput" class="hidden-input" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+      <!-- Кнопка под большим пальцем для быстрого стирания опечатки на телефоне -->
+      <button id="fixErrorBtn" class="danger-btn">⌫ Стереть опечатку (Backspace)</button>
 
       <div id="resultsBox" class="results-box">
         <h2>Конспект набран! Ваш результат:</h2>
@@ -260,7 +310,7 @@
             <div id="mistakesValue" class="metric-value">0</div>
           </div>
         </div>
-        <button id="repeatBtn" class="primary-btn">Повторить этот абзац</button>
+        <button id="repeatBtn" class="primary-btn" style="width:100%">Повторить этот абзац</button>
       </div>
     </div>
   </div>
@@ -302,6 +352,7 @@
     const historyList = document.getElementById('historyList');
     const resetBtn = document.getElementById('resetBtn');
     const repeatBtn = document.getElementById('repeatBtn');
+    const fixErrorBtn = document.getElementById('fixErrorBtn');
     const keyBadge = document.getElementById('keyBadge');
     const fingerName = document.getElementById('fingerName');
     const textDisplay = document.getElementById('textDisplay');
@@ -363,13 +414,13 @@
         mistakes: mistakes,
         length: targetText.length
       });
-      localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, 10)));
+      localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, 100)));
     }
 
     function renderHistory() {
       const history = JSON.parse(localStorage.getItem(STORAGE_HISTORY_KEY) || "[]");
       if (history.length === 0) {
-        historyList.innerHTML = `<li class="history-empty">Пока пусто. Вставьте конспект выше и пройдите первую тренировку!</li>`;
+        historyList.innerHTML = `<li class="history-empty">Пока пусто. Вставьте конспект выше и нажмите «Начать тренировку»!</li>`;
         return;
       }
       historyList.innerHTML = history.map((item, idx) => (
@@ -455,13 +506,20 @@
           cls += hasError ? " wrong" : " current";
         }
         const ch = targetText[i] === "&" ? "&amp;" : targetText[i] === "<" ? "&lt;" : targetText[i] === ">" ? "&gt;" : targetText[i];
-        html += `<span class="${cls}">${ch}</span>`;
+        const idAttr = i === currentIndex ? ' id="activeChar"' : '';
+        html += `<span class="${cls}"${idAttr}>${ch}</span>`;
       }
       textDisplay.innerHTML = html;
       progressStat.textContent = `Символ: ${currentIndex} / ${targetText.length}`;
       liveSpeedStat.textContent = `Скорость: ${getCurrentCpm()} зн./мин`;
       errorStat.textContent = `Ошибок: ${mistakesCount}`;
+      fixErrorBtn.style.display = hasError ? "block" : "none";
       updateFingerHint();
+
+      const activeEl = document.getElementById('activeChar');
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
     }
 
     function startTraining() {
@@ -489,6 +547,7 @@
       hintBanner.textContent = `Нажмите клавишу «${targetText[0]}», чтобы начать отсчёт времени`;
 
       renderText();
+      mobileInput.value = "";
       mobileInput.focus();
     }
 
@@ -576,6 +635,19 @@
         e.preventDefault();
         handleKeyInput(e.key);
       }
+    });
+
+    mobileInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (val && val.length > 0) {
+        handleKeyInput(val[val.length - 1]);
+      }
+      e.target.value = "";
+    });
+
+    fixErrorBtn.addEventListener('click', () => {
+      handleKeyInput("Backspace");
+      mobileInput.focus();
     });
 
     textDisplay.addEventListener('click', () => mobileInput.focus());
