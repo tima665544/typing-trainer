@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Тренажёр слепой печати — Занятие 7</title>
+  <title>Тренажёр слепой печати — Занятие 8</title>
   <style>
     :root {
       --bg: #f5f3ee;
@@ -38,7 +38,28 @@
       padding: 24px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.04);
     }
-    h1 { margin: 0 0 6px; font-size: 24px; }
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    h1 { margin: 0; font-size: 24px; }
+    .api-badge {
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .api-badge.error {
+      background: var(--danger-soft);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
     .lead { margin: 0 0 20px; color: var(--muted); font-size: 16px; }
     .controls-row {
       display: flex;
@@ -88,6 +109,7 @@
     .primary-btn { background: var(--accent); color: #fff; border: none; font-weight: 600; padding: 12px 22px; font-size: 16px; min-height: 48px; }
     .primary-btn:hover { opacity: 0.92; }
     .secondary-btn { background: var(--bg); color: var(--text); min-height: 44px; }
+    .secondary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .danger-btn {
       display: none;
       width: 100%;
@@ -148,7 +170,6 @@
     }
     .hint-banner.error { background: var(--danger-soft); color: var(--danger); }
     .hint-banner.warn { background: var(--warn-soft); color: var(--warn); }
-    /* Состояние «Много данных»: окно текста прокручивается, кнопки остаются на виду */
     .text-display {
       font-family: var(--mono);
       font-size: 20px;
@@ -192,7 +213,6 @@
       border-top: 1px solid var(--line);
     }
     .history-section h3 { margin: 0 0 10px; font-size: 16px; }
-    /* Состояние «Много записей»: список истории прокручивается */
     .history-list {
       list-style: none;
       padding: 0;
@@ -220,7 +240,6 @@
       border-radius: 8px;
       text-align: center;
     }
-    /* Адаптация под телефон шириной 360px: одна колонка, главная кнопка внизу под пальцем */
     @media (max-width: 480px) {
       body { padding: 10px 8px; }
       .app { padding: 16px 12px; }
@@ -233,7 +252,11 @@
 </head>
 <body>
   <div class="app">
-    <h1>Тренажёр слепой печати</h1>
+    <div class="top-header">
+      <h1>Тренажёр слепой печати</h1>
+      <!-- Индикатор внешнего API в шапке (Занятие 8) -->
+      <div id="apiStatusBadge" class="api-badge">Курс ЦБ: загружаю…</div>
+    </div>
     <p class="lead">Учите конспекты к семинару и тренируйте слепую печать одновременно</p>
 
     <div id="setupScreen">
@@ -246,6 +269,7 @@
           <option value="3">4. Информатика: Что такое алгоритм</option>
           <option value="4">5. Психология: Кратковременная и долговременная память</option>
         </select>
+        <button id="loadApiNoteBtn" class="secondary-btn">Конспект ЦБ РФ (API)</button>
         <label class="file-label" for="fileInput">Загрузить .txt</label>
         <input type="file" id="fileInput" accept=".txt">
       </div>
@@ -291,7 +315,6 @@
       <div id="textDisplay" class="text-display" tabindex="0"></div>
       <input type="text" id="mobileInput" class="hidden-input" autocomplete="off" autocapitalize="off" spellcheck="false">
 
-      <!-- Кнопка под большим пальцем для быстрого стирания опечатки на телефоне -->
       <button id="fixErrorBtn" class="danger-btn">⌫ Стереть опечатку (Backspace)</button>
 
       <div id="resultsBox" class="results-box">
@@ -316,6 +339,11 @@
   </div>
 
   <script>
+    const CBR_API_URL = "https://www.cbr-xml-daily.ru/daily_json.js";
+    const STORAGE_TEXT_KEY = "typing_trainer_last_text";
+    const STORAGE_HISTORY_KEY = "typing_trainer_history";
+    const STORAGE_RATE_KEY = "typing_trainer_last_rate";
+
     const PRESETS = [
       "Закон спроса утверждает: при прочих равных условиях, чем ниже цена товара, тем больше величина спроса на него.",
       "Договором признается соглашение двух или нескольких лиц об установлении, изменении или прекращении гражданских прав и обязанностей.",
@@ -336,10 +364,10 @@
       " ":"Большой палец (клавиша Пробел)"
     };
 
-    const STORAGE_TEXT_KEY = "typing_trainer_last_text";
-    const STORAGE_HISTORY_KEY = "typing_trainer_history";
     const ENG_TO_RUS_LAYOUT = "qwertyuiop[]asdfghjkl;'zxcvbnm,.QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>";
 
+    const apiStatusBadge = document.getElementById('apiStatusBadge');
+    const loadApiNoteBtn = document.getElementById('loadApiNoteBtn');
     const setupScreen = document.getElementById('setupScreen');
     const trainerScreen = document.getElementById('trainerScreen');
     const presetSelect = document.getElementById('presetSelect');
@@ -382,6 +410,62 @@
         .replace(/Ё/g, 'Е')
         .replace(/\s+/g, ' ')
         .trim();
+    }
+
+    // Запрос к открытому API ЦБ РФ с обработкой 3 ошибок: нет сети, таймаут 5 сек, код не 200 / пустой ответ
+    async function fetchCbrRates(insertIntoField) {
+      const cachedRate = localStorage.getItem(STORAGE_RATE_KEY);
+      apiStatusBadge.classList.remove('error');
+      apiStatusBadge.textContent = "Курс ЦБ: загружаю…";
+      loadApiNoteBtn.disabled = true;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      try {
+        const response = await fetch(CBR_API_URL, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error("Код ответа: " + response.status);
+        }
+
+        const data = await response.json();
+        if (!data || !data.Valute || !data.Valute.USD || !data.Valute.EUR) {
+          throw new Error("Пустой ответ API");
+        }
+
+        const usd = Number(data.Valute.USD.Value).toFixed(2).replace('.', ',');
+        const eur = Number(data.Valute.EUR.Value).toFixed(2).replace('.', ',');
+        const badgeText = `Курс ЦБ: USD ${usd} ₽ · EUR ${eur} ₽`;
+
+        localStorage.setItem(STORAGE_RATE_KEY, badgeText);
+        apiStatusBadge.textContent = badgeText;
+
+        if (insertIntoField) {
+          const noteText = `Экономическая сводка ЦБ РФ: официальный курс доллара США составляет ${usd} руб., а курс евро равен ${eur} руб. Изменение валютного курса влияет на стоимость импорта и инфляционные ожидания.`;
+          sourceText.value = noteText;
+          localStorage.setItem(STORAGE_TEXT_KEY, noteText);
+          sourceText.classList.remove('error');
+          setupError.textContent = "";
+          updateCharCounter();
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        apiStatusBadge.classList.add('error');
+        // Если есть старое значение — оставляем его и пишем про отсутствие связи
+        if (cachedRate) {
+          apiStatusBadge.textContent = `${cachedRate} (нет связи, старое значение)`;
+        } else {
+          apiStatusBadge.textContent = "Курс недоступен (нет связи)";
+        }
+        if (insertIntoField) {
+          // Важно: введённый пользователем текст в поле sourceText НЕ пропадает при сбое сети!
+          setupError.textContent = "Нет связи с сервером ЦБ РФ. Ваш текущий текст в поле сохранён — попробуйте снова или выберите готовый конспект.";
+        }
+      } finally {
+        loadApiNoteBtn.disabled = false;
+      }
     }
 
     function updateFingerHint() {
@@ -437,6 +521,11 @@
     }
     updateCharCounter();
     renderHistory();
+    fetchCbrRates(false);
+
+    loadApiNoteBtn.addEventListener('click', () => {
+      fetchCbrRates(true);
+    });
 
     presetSelect.addEventListener('change', () => {
       const idx = presetSelect.value;
