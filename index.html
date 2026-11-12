@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Тренажёр слепой печати — Прототип MVP</title>
+  <title>Тренажёр слепой печати — Занятие 7</title>
   <style>
     :root {
       --bg: #f5f3ee;
@@ -27,6 +27,7 @@
       background: var(--bg);
       color: var(--text);
       line-height: 1.45;
+      font-size: 16px;
     }
     .app {
       max-width: 760px;
@@ -47,7 +48,8 @@
       align-items: center;
     }
     select, .file-label, button {
-      font-size: 15px;
+      font-size: 16px;
+      min-height: 44px;
       border-radius: 8px;
       padding: 10px 14px;
       border: 1px solid var(--line);
@@ -56,7 +58,7 @@
       cursor: pointer;
     }
     select { flex: 1; min-width: 220px; }
-    .file-label { display: inline-block; background: var(--bg); font-weight: 500; }
+    .file-label { display: inline-flex; align-items: center; background: var(--bg); font-weight: 500; }
     input[type="file"] { display: none; }
     textarea {
       width: 100%;
@@ -75,8 +77,10 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
       margin-top: 6px;
-      font-size: 13px;
+      font-size: 14px;
       color: var(--muted);
     }
     .msg { min-height: 22px; margin: 8px 0 12px; font-size: 14px; color: var(--danger); font-weight: 500; }
@@ -92,9 +96,36 @@
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 12px;
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
     }
+    .finger-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+      margin-bottom: 12px;
+    }
+    .key-badge {
+      min-width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      background: #222;
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+    }
+    .finger-info { flex: 1; }
+    .finger-title { font-size: 13px; color: var(--muted); }
+    .finger-name { font-size: 16px; font-weight: 600; color: var(--text); }
     .hint-banner {
       padding: 10px 14px;
       border-radius: 8px;
@@ -197,6 +228,15 @@
         <button id="resetBtn" class="secondary-btn">Другой текст</button>
       </div>
 
+      <!-- Компонент 1 (Занятие 7): Подсказка клавиши и пальца -->
+      <div id="fingerCard" class="finger-card">
+        <div id="keyBadge" class="key-badge">А</div>
+        <div class="finger-info">
+          <div class="finger-title">Каким пальцем нажать (не глядя на клавиатуру):</div>
+          <div id="fingerName" class="finger-name">Левый мизинец</div>
+        </div>
+      </div>
+
       <div id="hintBanner" class="hint-banner">
         Нажмите первую подсвеченную букву на клавиатуре, не глядя на клавиши
       </div>
@@ -234,6 +274,18 @@
       "Для перевода информации из кратковременной памяти в долговременную требуется осмысленное повторение и связывание с прошлым опытом."
     ];
 
+    const FINGER_MAP = {
+      "й":"Левый мизинец","ф":"Левый мизинец","я":"Левый мизинец",
+      "ц":"Левый безымянный","ы":"Левый безымянный","ч":"Левый безымянный",
+      "у":"Левый средний","в":"Левый средний","с":"Левый средний",
+      "к":"Левый указательный","а":"Левый указательный","п":"Левый указательный","е":"Левый указательный","м":"Левый указательный","и":"Левый указательный",
+      "н":"Правый указательный","г":"Правый указательный","р":"Правый указательный","о":"Правый указательный","т":"Правый указательный","ь":"Правый указательный",
+      "ш":"Правый средний","л":"Правый средний","б":"Правый средний",
+      "щ":"Правый безымянный","д":"Правый безымянный","ю":"Правый безымянный",
+      "з":"Правый мизинец","ж":"Правый мизинец","х":"Правый мизинец","э":"Правый мизинец","ъ":"Правый мизинец",
+      " ":"Большой палец (клавиша Пробел)"
+    };
+
     const STORAGE_TEXT_KEY = "typing_trainer_last_text";
     const STORAGE_HISTORY_KEY = "typing_trainer_history";
     const ENG_TO_RUS_LAYOUT = "qwertyuiop[]asdfghjkl;'zxcvbnm,.QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>";
@@ -250,6 +302,8 @@
     const historyList = document.getElementById('historyList');
     const resetBtn = document.getElementById('resetBtn');
     const repeatBtn = document.getElementById('repeatBtn');
+    const keyBadge = document.getElementById('keyBadge');
+    const fingerName = document.getElementById('fingerName');
     const textDisplay = document.getElementById('textDisplay');
     const mobileInput = document.getElementById('mobileInput');
     const hintBanner = document.getElementById('hintBanner');
@@ -279,6 +333,20 @@
         .trim();
     }
 
+    function updateFingerHint() {
+      if (isFinished || !targetText || currentIndex >= targetText.length) {
+        keyBadge.textContent = "✓";
+        fingerName.textContent = "Текст завершён!";
+        return;
+      }
+      const ch = targetText[currentIndex];
+      keyBadge.textContent = ch === " " ? "␣" : ch;
+      const lower = ch.toLowerCase();
+      const baseFinger = FINGER_MAP[lower] || "Правый мизинец (знак препинания)";
+      const needShift = ch !== lower && /[А-ЯA-Z]/.test(ch);
+      fingerName.textContent = needShift ? `${baseFinger} + клавиша Shift` : baseFinger;
+    }
+
     function updateCharCounter() {
       const cleaned = normalizeText(sourceText.value);
       charCount.textContent = `Символов для набора: ${cleaned.length}`;
@@ -301,7 +369,7 @@
     function renderHistory() {
       const history = JSON.parse(localStorage.getItem(STORAGE_HISTORY_KEY) || "[]");
       if (history.length === 0) {
-        historyList.innerHTML = `<li class="history-empty">Пока нет завершённых тренировок. Пройдите первый абзац!</li>`;
+        historyList.innerHTML = `<li class="history-empty">Пока пусто. Вставьте конспект выше и пройдите первую тренировку!</li>`;
         return;
       }
       historyList.innerHTML = history.map((item, idx) => (
@@ -393,6 +461,7 @@
       progressStat.textContent = `Символ: ${currentIndex} / ${targetText.length}`;
       liveSpeedStat.textContent = `Скорость: ${getCurrentCpm()} зн./мин`;
       errorStat.textContent = `Ошибок: ${mistakesCount}`;
+      updateFingerHint();
     }
 
     function startTraining() {
