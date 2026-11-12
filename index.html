@@ -182,11 +182,19 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
     .metric-card { background: #fff; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); }
     .metric-label { font-size: 14px; color: var(--muted); }
     .metric-value { font-size: 24px; font-weight: 700; color: var(--text); }
+    .weak-keys {
+      background: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      margin-bottom: 14px;
+      font-size: 15px;
+    }
     .history-section {
       margin-top: 24px;
       padding-top: 18px;
@@ -329,6 +337,7 @@
             <div id="mistakesValue" class="metric-value">0</div>
           </div>
         </div>
+        <div id="weakKeysBox" class="weak-keys">Буквы без ошибок!</div>
         <button id="repeatBtn" class="primary-btn" style="width:100%">Повторить этот абзац</button>
       </div>
     </div>
@@ -387,6 +396,7 @@
     const speedValue = document.getElementById('speedValue');
     const accuracyValue = document.getElementById('accuracyValue');
     const mistakesValue = document.getElementById('mistakesValue');
+    const weakKeysBox = document.getElementById('weakKeysBox');
 
     let targetText = "";
     let currentIndex = 0;
@@ -395,6 +405,7 @@
     let totalKeyPresses = 0;
     let startTime = null;
     let isFinished = false;
+    let missedChars = [];
 
     function normalizeText(raw) {
       return raw
@@ -646,6 +657,7 @@
       totalKeyPresses = 0;
       startTime = null;
       isFinished = false;
+      missedChars = [];
 
       setupScreen.style.display = "none";
       trainerScreen.style.display = "block";
@@ -673,6 +685,14 @@
       speedValue.textContent = `${cpm} зн./мин`;
       accuracyValue.textContent = `${accuracy}%`;
       mistakesValue.textContent = String(mistakesCount);
+
+      if (missedChars.length === 0) {
+        weakKeysBox.textContent = "Проблемные клавиши: ни одной ошибки — идеальная точность!";
+      } else {
+        const unique = Array.from(new Set(missedChars)).map(c => c === " " ? "Пробел" : `«${c}»`);
+        weakKeysBox.textContent = `Проблемные клавиши в этом абзаце: ${unique.join(", ")}`;
+      }
+
       resultsBox.style.display = "block";
 
       saveHistoryEntry(cpm, accuracy, mistakesCount);
@@ -721,6 +741,7 @@
       } else {
         hasError = true;
         mistakesCount++;
+        missedChars.push(expected);
         const isRussianExpected = /[а-яА-Я]/.test(expected);
         const isEnglishPressed = ENG_TO_RUS_LAYOUT.includes(key);
 
