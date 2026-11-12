@@ -347,6 +347,9 @@
     const WIKI_API_URL = "https://ru.wikipedia.org/api/rest_v1/page/random/summary";
     const STORAGE_TEXT_KEY = "typing_trainer_last_text";
     const STORAGE_HISTORY_KEY = "typing_trainer_history";
+    const API_TIMEOUT_MS = 5000;
+    const MAX_WIKI_LENGTH = 260;
+    const MAX_HISTORY_ITEMS = 100;
 
     const PRESETS = [
       "Закон спроса утверждает: при прочих равных условиях, чем ниже цена товара, тем больше величина спроса на него.",
@@ -439,7 +442,7 @@
       setupError.textContent = "Загружаю конспект из Википедии…";
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
       try {
         const response = await fetch(WIKI_API_URL, {
@@ -463,8 +466,8 @@
             .replace(/[^а-яА-Я0-9\s.,:;!?"-]/g, " ")
         );
 
-        const shortNote = cleanedExtract.length > 260
-          ? cleanedExtract.slice(0, 260).replace(/\s+\S*$/, "") + "."
+        const shortNote = cleanedExtract.length > MAX_WIKI_LENGTH
+          ? cleanedExtract.slice(0, MAX_WIKI_LENGTH).replace(/\s+\S*$/, "") + "."
           : cleanedExtract;
 
         sourceText.value = shortNote;
@@ -513,7 +516,7 @@
         mistakes: mistakes,
         length: targetText.length
       });
-      localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, 100)));
+      localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)));
     }
 
     function renderHistory() {
