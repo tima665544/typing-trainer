@@ -254,7 +254,6 @@
   <div class="app">
     <div class="top-header">
       <h1>Тренажёр слепой печати</h1>
-      <!-- Индикатор внешнего API в шапке (Занятие 8) -->
       <div id="apiStatusBadge" class="api-badge">Курс ЦБ: загружаю…</div>
     </div>
     <p class="lead">Учите конспекты к семинару и тренируйте слепую печать одновременно</p>
@@ -412,7 +411,20 @@
         .trim();
     }
 
-    // Запрос к открытому API ЦБ РФ с обработкой 3 ошибок: нет сети, таймаут 5 сек, код не 200 / пустой ответ
+    // Безопасное чтение истории из localStorage (исправление по аудиту Занятия 8)
+    function safeReadHistory() {
+      try {
+        const raw = localStorage.getItem(STORAGE_HISTORY_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        setupError.textContent = "Локальная история тренировок была повреждена и сброшена.";
+        localStorage.removeItem(STORAGE_HISTORY_KEY);
+        return [];
+      }
+    }
+
     async function fetchCbrRates(insertIntoField) {
       const cachedRate = localStorage.getItem(STORAGE_RATE_KEY);
       apiStatusBadge.classList.remove('error');
@@ -453,14 +465,12 @@
       } catch (err) {
         clearTimeout(timeoutId);
         apiStatusBadge.classList.add('error');
-        // Если есть старое значение — оставляем его и пишем про отсутствие связи
         if (cachedRate) {
           apiStatusBadge.textContent = `${cachedRate} (нет связи, старое значение)`;
         } else {
           apiStatusBadge.textContent = "Курс недоступен (нет связи)";
         }
         if (insertIntoField) {
-          // Важно: введённый пользователем текст в поле sourceText НЕ пропадает при сбое сети!
           setupError.textContent = "Нет связи с сервером ЦБ РФ. Ваш текущий текст в поле сохранён — попробуйте снова или выберите готовый конспект.";
         }
       } finally {
@@ -488,7 +498,7 @@
     }
 
     function saveHistoryEntry(cpm, accuracy, mistakes) {
-      const history = JSON.parse(localStorage.getItem(STORAGE_HISTORY_KEY) || "[]");
+      const history = safeReadHistory();
       const now = new Date();
       const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
       history.unshift({
@@ -502,7 +512,7 @@
     }
 
     function renderHistory() {
-      const history = JSON.parse(localStorage.getItem(STORAGE_HISTORY_KEY) || "[]");
+      const history = safeReadHistory();
       if (history.length === 0) {
         historyList.innerHTML = `<li class="history-empty">Пока пусто. Вставьте конспект выше и нажмите «Начать тренировку»!</li>`;
         return;
@@ -556,6 +566,10 @@
         sourceText.classList.remove('error');
         setupError.textContent = "";
         updateCharCounter();
+      };
+      reader.onerror = () => {
+        sourceText.classList.add('error');
+        setupError.textContent = "Не удалось прочитать файл .txt. Попробуйте скопировать текст вручную.";
       };
       reader.readAsText(file, "utf-8");
     });
