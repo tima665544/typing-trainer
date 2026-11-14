@@ -195,7 +195,7 @@
       margin-bottom: 14px;
       font-size: 15px;
     }
-    .history-section {
+    .history-section, .log-section {
       margin-top: 24px;
       padding-top: 18px;
       border-top: 1px solid var(--line);
@@ -204,10 +204,16 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
       gap: 10px;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
-    .history-section h3 { margin: 0; font-size: 16px; }
+    .history-section h3, .log-section h3 { margin: 0; font-size: 16px; }
+    .backup-note {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
     .link-btn {
       background: transparent;
       border: none;
@@ -244,6 +250,28 @@
       background: var(--bg);
       border-radius: 8px;
       text-align: center;
+    }
+    .log-box {
+      background: #1e1e1e;
+      color: #dedede;
+      font-family: var(--mono);
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 10px 12px;
+      max-height: 150px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .log-line { margin-bottom: 4px; }
+    .log-line.err { color: #ff7b72; }
+    .log-line.warn { color: #ffd166; }
+    .log-textarea {
+      width: 100%;
+      min-height: 120px;
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 13px;
+      display: none;
     }
     @media (max-width: 480px) {
       body { padding: 10px 8px; }
@@ -289,9 +317,10 @@
 
       <div class="history-section">
         <div class="history-header">
-          <h3>Последние тренировки (сохраняются в браузере)</h3>
+          <h3>Последние тренировки</h3>
           <button id="clearHistoryBtn" class="link-btn" style="display:none;">Очистить историю</button>
         </div>
+        <p class="backup-note">Данные хранятся только в этом браузере. При очистке браузера или смене устройства история не перенесётся.</p>
         <ul id="historyList" class="history-list"></ul>
       </div>
     </div>
@@ -341,13 +370,25 @@
         <button id="repeatBtn" class="primary-btn" style="width:100%">Повторить этот абзац</button>
       </div>
     </div>
+
+    <div class="log-section">
+      <div class="history-header">
+        <h3>Журнал событий (диагностика)</h3>
+        <button id="showLogTextBtn" class="link-btn">Показать текстом</button>
+      </div>
+      <div id="logBox" class="log-box"></div>
+      <textarea id="logTextArea" class="log-textarea" readonly></textarea>
+    </div>
   </div>
 
   <script>
+    const APP_VERSION = "2026-11-14";
     const WIKI_API_URL = "https://ru.wikipedia.org/api/rest_v1/page/random/summary";
     const STORAGE_TEXT_KEY = "typing_trainer_last_text";
     const STORAGE_HISTORY_KEY = "typing_trainer_history";
+    const STORAGE_LOG_KEY = "typing_trainer_logs";
     const API_TIMEOUT_MS = 5000;
+    const SLOW_THRESHOLD_MS = 1000;
     const MAX_WIKI_LENGTH = 260;
     const MAX_HISTORY_ITEMS = 100;
     const MAX_TEXT_LENGTH = 3000;
@@ -401,6 +442,9 @@
     const accuracyValue = document.getElementById('accuracyValue');
     const mistakesValue = document.getElementById('mistakesValue');
     const weakKeysBox = document.getElementById('weakKeysBox');
+    const logBox = document.getElementById('logBox');
+    const logTextArea = document.getElementById('logTextArea');
+    const showLogTextBtn = document.getElementById('showLogTextBtn');
 
     let targetText = "";
     let currentIndex = 0;
@@ -410,6 +454,48 @@
     let startTime = null;
     let isFinished = false;
     let missedChars = [];
+    let logLines = [];
+
+    function formatTimeNow() {
+      const d = new Date();
+      return [d.getHours(), d.getMinutes(), d.getSeconds()]
+        .map(n => (n < 10 ? "0" : "") + n)
+        .join(":");
+    }
+
+    function writeLog(level, message) {
+      const paddedLevel = level.padEnd(8, " ");
+      const line = `${formatTimeNow()}  ${paddedLevel} [v${APP_VERSION}] ${message}`;
+      logLines.push(line);
+      if (logLines.length > 50) {
+        logLines.shift();
+      }
+      try {
+        localStorage.setItem(STORAGE_LOG_KEY, JSON.stringify(logLines));
+      } catch (e) {}
+
+      const div = document.createElement("div");
+      div.className = "log-line" + (level === "ОШИБКА" ? " err" : level === "ВНИМАНИЕ" ? " warn" : "");
+      div.textContent = line;
+      logBox.appendChild(div);
+      logBox.scrollTop = logBox.scrollHeight;
+
+      if (logTextArea.style.display === "block") {
+        logTextArea.value = logLines.join("\n");
+      }
+    }
+
+    showLogTextBtn.addEventListener("click", () => {
+      if (logTextArea.style.display === "block") {
+        logTextArea.style.display = "none";
+        showLogTextBtn.textContent = "Показать текстом";
+      } else {
+        logTextArea.style.display = "block";
+        logTextArea.value = logLines.join("\n");
+        logTextArea.select();
+        showLogTextBtn.textContent = "Скрыть текст";
+      }
+    });
 
     function normalizeText(raw) {
       return raw
@@ -437,6 +523,7 @@
         setupError.className = "msg";
         setupError.textContent = "Локальная история тренировок была повреждена и сброшена.";
         localStorage.removeItem(STORAGE_HISTORY_KEY);
+        writeLog("ОШИБКА", "чтение истории: повреждён JSON в localStorage, показано сообщение о сбросе");
         return [];
       }
     }
@@ -448,6 +535,9 @@
       setupError.className = "msg loading";
       setupError.textContent = "Загружаю конспект из Википедии…";
 
+      const reqStart = Date.now();
+      writeLog("ИНФО", "Википедия API: отправка запроса случайного конспекта");
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
@@ -457,14 +547,15 @@
           signal: controller.signal
         });
         clearTimeout(timeoutId);
+        const elapsed = Date.now() - reqStart;
 
         if (!response.ok) {
-          throw new Error("Код ответа: " + response.status);
+          throw new Error("Код ответа " + response.status + " за " + elapsed + " мс");
         }
 
         const data = await response.json();
         if (!data || !data.extract) {
-          throw new Error("Пустой ответ API");
+          throw new Error("Пустой ответ API за " + elapsed + " мс");
         }
 
         const cleanedExtract = normalizeText(
@@ -481,10 +572,16 @@
         localStorage.setItem(STORAGE_TEXT_KEY, shortNote);
         clearSetupError();
         updateCharCounter();
+
+        const level = elapsed >= SLOW_THRESHOLD_MS ? "ВНИМАНИЕ" : "ИНФО";
+        const slowNote = elapsed >= SLOW_THRESHOLD_MS ? " — медленно, пользователь ждал" : "";
+        writeLog(level, `Википедия API: загружен конспект (${shortNote.length} симв.) за ${elapsed} мс${slowNote}`);
       } catch (err) {
         clearTimeout(timeoutId);
+        const elapsed = Date.now() - reqStart;
         setupError.className = "msg";
         setupError.textContent = "Нет связи с Википедией (ошибка сети). Ваш текущий текст в поле сохранён — попробуйте снова или выберите конспект 1–5.";
+        writeLog("ОШИБКА", `Википедия API: сбой за ${elapsed} мс (${err.message || "нет сети"}), показано «Нет связи с Википедией», старый текст (${sourceText.value.length} симв.) сохранён`);
       } finally {
         presetSelect.disabled = false;
         startBtn.disabled = false;
@@ -559,6 +656,7 @@
     }
     updateCharCounter();
     renderHistory();
+    writeLog("ИНФО", `страница открыта, записей в истории: ${safeReadHistory().length}`);
 
     presetSelect.addEventListener('change', () => {
       const val = presetSelect.value;
@@ -571,6 +669,7 @@
         localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
         clearSetupError();
         updateCharCounter();
+        writeLog("ИНФО", `выбран готовый конспект №${Number(val) + 1}, длина ${sourceText.value.length} симв.`);
       }
     });
 
@@ -582,6 +681,7 @@
         sourceText.classList.add('error');
         setupError.className = "msg";
         setupError.textContent = "Программа поддерживает только файлы формата .txt. Пожалуйста, откройте ваш документ, скопируйте текст и вставьте его сюда.";
+        writeLog("ОШИБКА", "загрузка файла: выбран неподдерживаемый формат, показано сообщение «только файлы формата .txt»");
         fileInput.value = "";
         return;
       }
@@ -592,11 +692,13 @@
         localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
         clearSetupError();
         updateCharCounter();
+        writeLog("ИНФО", `загружен файл .txt, длина ${sourceText.value.length} симв.`);
       };
       reader.onerror = () => {
         sourceText.classList.add('error');
         setupError.className = "msg";
         setupError.textContent = "Не удалось прочитать файл .txt. Попробуйте скопировать текст вручную.";
+        writeLog("ОШИБКА", "загрузка файла: ошибка чтения FileReader, показано сообщение пользователю");
       };
       reader.readAsText(file, "utf-8");
     });
@@ -615,12 +717,14 @@
       localStorage.removeItem(STORAGE_TEXT_KEY);
       clearSetupError();
       updateCharCounter();
+      writeLog("ИНФО", "поле текста очищено пользователем");
       sourceText.focus();
     });
 
     clearHistoryBtn.addEventListener('click', () => {
       localStorage.removeItem(STORAGE_HISTORY_KEY);
       renderHistory();
+      writeLog("ИНФО", "история тренировок очищена пользователем");
     });
 
     function getCurrentCpm() {
@@ -664,6 +768,7 @@
         sourceText.classList.add('error');
         setupError.className = "msg";
         setupError.textContent = "Вставьте текст конспекта или выберите один из готовых текстов.";
+        writeLog("ОШИБКА", "запуск тренировки: пустое поле, показано «Вставьте текст конспекта…»");
         return;
       }
 
@@ -671,6 +776,7 @@
         sourceText.classList.add('error');
         setupError.className = "msg";
         setupError.textContent = `Текст слишком длинный (${cleaned.length} символов при максимуме ${MAX_TEXT_LENGTH}). Сократите отрывок конспекта.`;
+        writeLog("ОШИБКА", `запуск тренировки: превышен лимит длины (${cleaned.length} > ${MAX_TEXT_LENGTH}), показано сообщение об ошибке`);
         return;
       }
 
@@ -691,6 +797,7 @@
       hintBanner.className = "hint-banner";
       hintBanner.textContent = `Нажмите клавишу «${targetText[0]}», чтобы начать отсчёт времени`;
 
+      writeLog("ИНФО", `начата тренировка, длина конспекта: ${targetText.length} симв.`);
       renderText();
       mobileInput.value = "";
       mobileInput.focus();
@@ -723,6 +830,7 @@
       saveHistoryEntry(cpm, accuracy, mistakesCount);
       renderHistory();
       renderText();
+      writeLog("ИНФО", `тренировка завершена: ${targetText.length} симв., скорость ${cpm} зн./мин, точность ${accuracy}%, ошибок ${mistakesCount}`);
     }
 
     function handleKeyInput(key) {
@@ -773,6 +881,7 @@
         if (isRussianExpected && isEnglishPressed) {
           hintBanner.className = "hint-banner warn";
           hintBanner.textContent = `Похоже, включена английская раскладка! Переключите на RU, нажмите Backspace и введите «${expected}»`;
+          writeLog("ВНИМАНИЕ", `ввод на позиции ${currentIndex + 1}: нажата латинская клавиша при русской букве, показана подсказка смены раскладки`);
         } else {
           hintBanner.className = "hint-banner error";
           hintBanner.textContent = `Опечатка (нажато «${key}» вместо «${expected}»). Нажмите Backspace, чтобы продолжить!`;
