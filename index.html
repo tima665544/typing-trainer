@@ -208,6 +208,11 @@
       gap: 10px;
       margin-bottom: 6px;
     }
+    .history-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
     .history-section h3, .log-section h3 { margin: 0; font-size: 16px; }
     .backup-note {
       margin: 0 0 10px;
@@ -223,7 +228,8 @@
       padding: 4px 6px;
       text-decoration: underline;
     }
-    .link-btn:hover { color: var(--danger); }
+    .link-btn:hover { color: var(--accent); }
+    .link-btn.danger:hover { color: var(--danger); }
     .history-list {
       list-style: none;
       padding: 0;
@@ -318,7 +324,10 @@
       <div class="history-section">
         <div class="history-header">
           <h3>Последние тренировки</h3>
-          <button id="clearHistoryBtn" class="link-btn" style="display:none;">Очистить историю</button>
+          <div class="history-actions">
+            <button id="loadDemoBtn" class="link-btn">Загрузить демо-данные</button>
+            <button id="clearHistoryBtn" class="link-btn danger" style="display:none;">Очистить историю</button>
+          </div>
         </div>
         <p class="backup-note">Данные хранятся только в этом браузере. При очистке браузера или смене устройства история не перенесётся.</p>
         <ul id="historyList" class="history-list"></ul>
@@ -382,7 +391,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026-11-14";
+    const APP_VERSION = "2026-11-16-RC";
     const WIKI_API_URL = "https://ru.wikipedia.org/api/rest_v1/page/random/summary";
     const STORAGE_TEXT_KEY = "typing_trainer_last_text";
     const STORAGE_HISTORY_KEY = "typing_trainer_history";
@@ -399,6 +408,14 @@
       "Клетка является элементарной структурной и функциональной единицей всех живых организмов, обладающей собственным обменом веществ.",
       "Алгоритм - это конечная последовательность точных действий, формальное выполнение которых позволяет получить решение задачи.",
       "Для перевода информации из кратковременной памяти в долговременную требуется осмысленное повторение и связывание с прошлым опытом."
+    ];
+
+    const DEMO_HISTORY = [
+      { time: "18:42 — Информатика: Алгоритм", cpm: 214, accuracy: 98, mistakes: 2, length: 118 },
+      { time: "18:30 — Психология: Память", cpm: 198, accuracy: 97, mistakes: 3, length: 129 },
+      { time: "Вчера — Биология: Клетка", cpm: 185, accuracy: 96, mistakes: 4, length: 125 },
+      { time: "Вчера — Право: Гражданский договор", cpm: 172, accuracy: 95, mistakes: 6, length: 127 },
+      { time: "14.11 — Экономика: Закон спроса", cpm: 156, accuracy: 94, mistakes: 7, length: 112 }
     ];
 
     const FINGER_MAP = {
@@ -424,6 +441,7 @@
     const setupError = document.getElementById('setupError');
     const startBtn = document.getElementById('startBtn');
     const clearTextBtn = document.getElementById('clearTextBtn');
+    const loadDemoBtn = document.getElementById('loadDemoBtn');
     const clearHistoryBtn = document.getElementById('clearHistoryBtn');
     const historyList = document.getElementById('historyList');
     const resetBtn = document.getElementById('resetBtn');
@@ -629,7 +647,7 @@
         clearHistoryBtn.style.display = "none";
         const emptyLi = document.createElement("li");
         emptyLi.className = "history-empty";
-        emptyLi.textContent = "Пока пусто. Вставьте конспект выше и нажмите «Начать тренировку»!";
+        emptyLi.textContent = "Пока пусто. Вставьте конспект выше или нажмите «Загрузить демо-данные»!";
         historyList.appendChild(emptyLi);
         return;
       }
@@ -657,6 +675,16 @@
     updateCharCounter();
     renderHistory();
     writeLog("ИНФО", `страница открыта, записей в истории: ${safeReadHistory().length}`);
+
+    loadDemoBtn.addEventListener("click", () => {
+      sourceText.value = PRESETS[0];
+      localStorage.setItem(STORAGE_TEXT_KEY, sourceText.value);
+      localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(DEMO_HISTORY));
+      clearSetupError();
+      updateCharCounter();
+      renderHistory();
+      writeLog("ИНФО", "загружены демо-данные для показа (5 тренировок и конспект №1)");
+    });
 
     presetSelect.addEventListener('change', () => {
       const val = presetSelect.value;
